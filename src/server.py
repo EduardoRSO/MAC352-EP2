@@ -115,10 +115,7 @@ class Usuarios:
                     password = senha_nova if password == senha_antiga else password
                     conteudo[i] = self._formatacao_dos_dados(username, password, status, pontos, host, port)
             with open(self._nome, 'w') as arquivo:
-                arquivo.writelines(conteudo)           
-
-    #def usuarios_invade_partida(self, dados: List) -> None:
-    #    pass
+                arquivo.writelines(conteudo)          
 
     def usuarios_atualiza_status(self, usuario, status_antigo, status_novo) -> None:
         with self._lock:
@@ -132,7 +129,20 @@ class Usuarios:
             with open(self._nome, 'w') as arquivo:
                 arquivo.writelines(conteudo)           
 
-    def usuarios_retorna_listagem(self) -> None:
+    def usuarios_lista_pontuacao(self) -> None:
+        with self._lock:
+            with open(self._nome, 'r') as arquivo:
+                conteudo = arquivo.readlines()
+            
+            dados = []
+            for linha in conteudo:    
+                dados.append([linha.split()[0], linha.split()[3]])
+            
+            dados = sorted(dados, key = lambda x:x[1], reverse= True)
+            for linha in dados:
+                print(linha)
+
+    def usuarios_lista_nao_offline(self) -> None:
         with self._lock:
             with open(self._nome, 'r') as arquivo:
                 conteudo = arquivo.readlines()
@@ -247,13 +257,13 @@ if __name__ == '__main__':
     u = Usuarios()
     l = Logs()
 
-    u.usuarios_retorna_listagem()
+    u.usuarios_lista_nao_offline()
     u.usuarios_cria_novo_usuario('user1', 'senha1', 'host1', 'port1') 
     u.usuarios_cria_novo_usuario('user2', 'senha2', 'host2', 'port2')   
     u.usuarios_atualiza_status('user1', 'offline', 'online')
     u.usuarios_altera_senha_do_usuario('user1', 'senha1', 'passw1')
     u.usuarios_atualiza_status('user2', 'offline', 'jogando')
-    u.usuarios_retorna_listagem()   
+    u.usuarios_lista_pontuacao()   
     #servidorTCP = ServidorTCP(u, p, l, port)
     #servidorUDP = ServidorUDP(u, p, l, port)
 
