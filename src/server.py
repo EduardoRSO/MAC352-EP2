@@ -90,7 +90,10 @@ class Usuarios:
         except:
             usuarios = open(self._nome, 'a')
             print(f'    [-]Arquivo de usuários não encontrado')
-        usuarios.close()     
+        usuarios.close()
+
+    def _formatacao_dos_dados(self, username, password, status, pontos, host, port):
+        return f'{username} {password} {status} {pontos} {host} {port}\n'     
         
     def usuarios_cria_novo_usuario(self, usuario, senha, host, porta) -> None:
         with self._lock:
@@ -99,7 +102,7 @@ class Usuarios:
 
             if usuario not in [linha.split()[0] for linha in conteudo]:
                 with open(self._nome, 'a') as arquivo:
-                    arquivo.write(usuario+' '+senha+' offline '+host+' '+porta+'\n')
+                    arquivo.write(self._formatacao_dos_dados(usuario, senha, 'offline', '0', host, port))
             
 
     def usuarios_altera_senha_do_usuario(self, usuario, senha_antiga, senha_nova) -> None:
@@ -107,10 +110,10 @@ class Usuarios:
             with open(self._nome, 'r') as arquivo:
                 conteudo = arquivo.readlines()
             for i in range(len(conteudo)):
-                username, password, status, host, port = conteudo[i].split()
+                username, password, status, pontos, host, port = conteudo[i].split()
                 if username == usuario:
                     password = senha_nova if password == senha_antiga else password
-                    conteudo[i] = username+' '+password+' '+status+' '+host+' '+port+'\n'
+                    conteudo[i] = self._formatacao_dos_dados(username, password, status, pontos, host, port)
             with open(self._nome, 'w') as arquivo:
                 arquivo.writelines(conteudo)           
 
@@ -122,10 +125,10 @@ class Usuarios:
             with open(self._nome, 'r') as arquivo:
                 conteudo = arquivo.readlines()
             for i in range(len(conteudo)):
-                username, password, status, host, port = conteudo[i].split()
+                username, password, status, pontos, host, port = conteudo[i].split()
                 if username == usuario:
                     status = status_novo if status == status_antigo else status
-                    conteudo[i] = username+' '+password+' '+status+' '+host+' '+port+'\n'
+                    conteudo[i] = self._formatacao_dos_dados(username, password, status, pontos, host, port)
             with open(self._nome, 'w') as arquivo:
                 arquivo.writelines(conteudo)           
 
@@ -134,30 +137,8 @@ class Usuarios:
             with open(self._nome, 'r') as arquivo:
                 conteudo = arquivo.readlines()
                 for linha in conteudo:
-                    if linha.split()[2] == 'online':
-                        print(linha)
-
-class Pontuacoes:
-    def __init__(self):
-        self._lock = Lock()
-        self._nome = 'pontuacoes.txt'
-        try:
-            self._pontuacoes = open(self._nome, 'r')
-            print(f'    [+]Arquivo de pontuações encontrado')
-        except:
-            self._pontuacoes = open(self._nome, 'a')
-            print(f'    [-]Arquivo de pontuações não encontrado')
-        self._pontuacoes.close()
-
-    def pontuacoes_adiciona_usuario(self, dados: List) -> None:
-        pass
-
-    def pontuacoes_atualiza_dados(self, dados: List) -> None:
-        pass
-
-    def pontuacoes_retorna_Listagem(self, dados: List) -> None:
-        pass
-
+                    if linha.split()[2] != 'offline':
+                        print(linha, end='')
 
 class Servidor(ABC):
 
@@ -183,9 +164,8 @@ class Servidor(ABC):
 
 
 class ServidorTCP(Servidor):
-    def __init__(self, usuarios: Usuarios, pontuacoes: Pontuacoes, logs: Logs, port):
+    def __init__(self, usuarios: Usuarios, logs: Logs, port):
         self.usuarios = usuarios
-        self.pontuacoes = pontuacoes
         self.logs = logs
         self._skt = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
         self._skt.bind((HOST, PORT))
@@ -219,9 +199,8 @@ class ServidorTCP(Servidor):
         conn.sendall(buffer)            
 
 class ServidorUDP(Servidor):
-    def __init__(self, usuarios: Usuarios, pontuacoes: Pontuacoes, logs: Logs, port):
+    def __init__(self, usuarios: Usuarios,logs: Logs, port):
         self.usuarios = usuarios
-        self.pontuacoes = pontuacoes
         self.logs = logs
         self._skt = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self._skt.bind((HOST, PORT))
@@ -266,14 +245,14 @@ if __name__ == '__main__':
         port = PORT
 
     u = Usuarios()
-    p = Pontuacoes()
     l = Logs()
 
-    u.usuarios_altera_senha_do_usuario('daniel', 'macedo', 'prof')
-    u.usuarios_retorna_listagem() 
-    u.usuarios_atualiza_status('eduardo', 'online', 'offline')
-    u.usuarios_altera_senha_do_usuario('daniel', 'macedo', 'prof')
-    u.usuarios_atualiza_status('daniel', 'online', 'offline')
+    u.usuarios_retorna_listagem()
+    u.usuarios_cria_novo_usuario('user1', 'senha1', 'host1', 'port1') 
+    u.usuarios_cria_novo_usuario('user2', 'senha2', 'host2', 'port2')   
+    u.usuarios_atualiza_status('user1', 'offline', 'online')
+    u.usuarios_altera_senha_do_usuario('user1', 'senha1', 'passw1')
+    u.usuarios_atualiza_status('user2', 'offline', 'jogando')
     u.usuarios_retorna_listagem()   
     #servidorTCP = ServidorTCP(u, p, l, port)
     #servidorUDP = ServidorUDP(u, p, l, port)
