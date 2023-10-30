@@ -77,7 +77,7 @@ class Mensagens(ABC):
     def mensagens_servidor_finalizado(self, tipo_servidor, host_servidor, porta_servidor):
         return f'Servidor {tipo_servidor} finalizado em {host_servidor}:{porta_servidor}\n'
 
-
+#createlist?
 class Usuarios:
 
     def __init__(self):
@@ -92,10 +92,18 @@ class Usuarios:
             print(f'    [-]Arquivo de usuários não encontrado')
         usuarios.close()
 
+    def serializa(self):
+        conteudo = []
+        with self._lock:
+            with open(self._nome, 'r') as arquivo:
+                conteudo = arquivo.readlines()
+        return conteudo
+
+
     def _formatacao_dos_dados(self, username, password, status, pontos, host, port):
         return f'{username} {password} {status} {pontos} {host} {port}\n'     
         
-    def usuarios_cria_novo_usuario(self, usuario, senha, host, porta) -> None:
+    def cria_novo_usuario(self, usuario, senha, host, porta) -> None:
         with self._lock:
             with open(self._nome, 'r') as arquivo:
                 conteudo = arquivo.readlines()
@@ -105,7 +113,7 @@ class Usuarios:
                     arquivo.write(self._formatacao_dos_dados(usuario, senha, 'offline', '0', host, port))
             
 
-    def usuarios_altera_senha_do_usuario(self, usuario, senha_antiga, senha_nova) -> None:
+    def altera_senha_do_usuario(self, usuario, senha_antiga, senha_nova) -> None:
         with self._lock:
             with open(self._nome, 'r') as arquivo:
                 conteudo = arquivo.readlines()
@@ -117,7 +125,7 @@ class Usuarios:
             with open(self._nome, 'w') as arquivo:
                 arquivo.writelines(conteudo)          
 
-    def usuarios_atualiza_status(self, usuario, status_antigo, status_novo) -> None:
+    def atualiza_status(self, usuario, status_antigo, status_novo) -> None:
         with self._lock:
             with open(self._nome, 'r') as arquivo:
                 conteudo = arquivo.readlines()
@@ -129,7 +137,7 @@ class Usuarios:
             with open(self._nome, 'w') as arquivo:
                 arquivo.writelines(conteudo)           
 
-    def usuarios_lista_pontuacao(self) -> None:
+    def lista_pontuacao(self) -> None:
         with self._lock:
             with open(self._nome, 'r') as arquivo:
                 conteudo = arquivo.readlines()
@@ -142,7 +150,7 @@ class Usuarios:
             for linha in dados:
                 print(linha)
 
-    def usuarios_lista_nao_offline(self) -> None:
+    def lista_nao_offline(self) -> None:
         with self._lock:
             with open(self._nome, 'r') as arquivo:
                 conteudo = arquivo.readlines()
@@ -152,84 +160,93 @@ class Usuarios:
 
 class Servidor(ABC):
 
-    @abstractmethod
-    def __init__(self):
+    def mostra_pontos():
         pass
 
-    @abstractmethod
-    def servidor_faz_leitura(self, dados: List) -> None:
+    def mostra_todos_usuarios():
         pass
 
-    @abstractmethod
-    def servidor_faz_escrita(self, dados: List) -> None:
+    def mostra_usuarios_logados():
         pass
 
-    @abstractmethod
-    def servidor_interpreta_pacote(self, dados: List) -> None:
+    def envia_heartbeat():
         pass
 
-    @abstractmethod
-    def servidor_cria_listener(self, dados: List) -> None:
+    def interpreta_pacote():
         pass
+
+    def finaliza_jogo():
+        pass
+
+    def inicializa_jogo():
+        pass
+
+    def login():
+        pass
+
+    def logout():
+        pass
+
+    def desafio():
+        pass
+
+    def envia():
+        pass
+
 
 
 class ServidorTCP(Servidor):
-    def __init__(self, usuarios: Usuarios, logs: Logs, port):
+    def __init__(self, usuarios: Usuarios, logs: Logs, host:str, port:int):
         self.usuarios = usuarios
         self.logs = logs
+        self._host = host
+        self._port = port
         self._skt = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
-        self._skt.bind((HOST, PORT))
+        self._skt.bind((self._host,self._port))
         self._threads = []
-        print(f'    [+]Servidor TCP iniciado em {HOST}:{port}') 
-        pass
+        print(f'    [+]Servidor TCP iniciado em {self._host}:{port}') 
 
-    def servidor_cria_listener(self, dados: List):
+    def cria_listener(self):
         self._skt.listen()
         while True:
             conn, addr = self._skt.accept()
-            nova_thread = Thread(target=self.servidor_faz_leitura, args=(conn,addr))
+            nova_thread = Thread(target=self.faz_leitura, args=(conn,addr))
             self._threads.append(nova_thread)
             nova_thread.start()
 
-    def servidor_faz_leitura(self, conn, addr) -> None:
+    def faz_leitura(self, conn, addr) -> None:
         with conn:
             print(f'    [+]Cliente TCP conectado em {addr}')
             while True:
                 buffer = conn.recv(BUFFER_SIZE)
                 if not buffer:
                     break
-                self.servidor_interpreta_pacote([buffer, conn])
+                self.interpreta_pacote([buffer, conn])
 
-    def servidor_interpreta_pacote(self, dados: List) -> None:
-        buffer, conn = dados
-        self.servidor_faz_escrita([buffer, conn])
-
-    def servidor_faz_escrita(self, dados: List) -> None:
+    def faz_escrita(self, dados: List) -> None:
         buffer, conn = dados
         conn.sendall(buffer)            
 
 class ServidorUDP(Servidor):
-    def __init__(self, usuarios: Usuarios,logs: Logs, port):
+    def __init__(self, usuarios: Usuarios, logs: Logs, host:str, port:int):
         self.usuarios = usuarios
         self.logs = logs
+        self._host = host
+        self._port = port
         self._skt = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self._skt.bind((HOST, PORT))
-        print(f'    [+]Servidor UDP iniciado em {HOST}:{port}') 
+        self._skt.bind(((self._host,self._port)))
+        print(f'    [+]Servidor UDP iniciado em {self._host}:{port}') 
 
-    def servidor_cria_listener(self):
+    def cria_listener(self):
             while True:
-                self.servidor_faz_leitura()
+                self.faz_leitura()
     
-    def servidor_faz_leitura(self) -> None:
+    def faz_leitura(self) -> None:
         buffer, addr = self._skt.recvfrom(BUFFER_SIZE)
         print(f'    [+]Cliente UDP conectado em {addr}')
-        self.servidor_interpreta_pacote([buffer, addr])    
+        self.interpreta_pacote([buffer, addr])    
 
-    def servidor_interpreta_pacote(self, dados: list) -> None:
-        buffer, addr = dados
-        self.servidor_faz_escrita(buffer, addr)    
-
-    def servidor_faz_escrita(self, dados: List) -> None:
+    def faz_escrita(self, dados: List) -> None:
         buffer, addr = dados
         self._skt.sendto(buffer, addr)
 
@@ -239,32 +256,30 @@ class Auxiliares:
     def __init__(self):
         pass
 
-    #def auxiliares_envia_desafio(self, dados: List):
-    #    pass
-
     def auxiliares_envia_mensagem_para_socket(self, dados: List):
         pass
 
     def auxiliares_invoca_threads(self, servidor: Servidor) -> None:
-        servidor.servidor_cria_listener()
+        servidor.cria_listener()
+
 
 if __name__ == '__main__':
     if len(sys.argv) == 2:
-        port = (int)(sys.argv[1])
+        port = int(sys.argv[1])
     else:
         port = PORT
 
     u = Usuarios()
     l = Logs()
 
-    u.usuarios_lista_nao_offline()
-    u.usuarios_cria_novo_usuario('user1', 'senha1', 'host1', 'port1') 
-    u.usuarios_cria_novo_usuario('user2', 'senha2', 'host2', 'port2')   
-    u.usuarios_atualiza_status('user1', 'offline', 'online')
-    u.usuarios_altera_senha_do_usuario('user1', 'senha1', 'passw1')
-    u.usuarios_atualiza_status('user2', 'offline', 'jogando')
-    u.usuarios_lista_pontuacao()   
-    #servidorTCP = ServidorTCP(u, p, l, port)
-    #servidorUDP = ServidorUDP(u, p, l, port)
+    servidorTCP = ServidorTCP(u, l, HOST, port)
+    servidorUDP = ServidorUDP(u, l, HOST, port)
+
+    servidores = []
+    servidores.append(Thread(target = servidorTCP.cria_listener()))
+    servidores.append(Thread(target = servidorUDP.cria_listener()))
+    
+    for tipo_de_servidor in servidores:
+        tipo_de_servidor.start()
 
 
