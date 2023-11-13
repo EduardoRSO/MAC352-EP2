@@ -16,24 +16,40 @@ HEARTBEAT_TIMEOUT = 80085
 SSL_TIMEOUT = 455
 BUFFER_SIZE = 4096
 
+HELLO = '0'
+NOVO = '1'
+SENHA = '2'
+ENTRA = '3'
+LIDERES='4'
+LISTA_CONECTADOS = '5'
+LISTA_TODOS = '6'
+INICIA= '7'
+DESAFIO = '8'
+DESLOGA = '9'
+MOVE = 'A'
+ATRASO = 'B'
+ENCERRA  ='C'
+TCHAU = 'D'
+TABULEIRO = 'E'
+ACK = 'F'
 
 class Logs:
 
     def __init__(self):
-        self._lock = Lock()
-        self._nome = 'logs.txt'
+        self.lock = Lock()
+        self.nome = 'logs.txt'
         try:
-            self._logs = open(self._nome, 'r')
+            self.logs = open(self.nome, 'r')
             print(f'    [+]Arquivo de logs encontrado')
             
         except:
-            self._logs = open(self._nome,'a')
+            self.logs = open(self.nome,'a')
             print(f'    [-]Arquivo de logs não encontrado')
-        self._logs.close()
+        self.logs.close()
 
     def logs_insere_nova_mensagem(self, mensagem: str):
-        with self._lock:
-            arquivo = open(self._nome, 'a')
+        with self.lock:
+            arquivo = open(self.nome, 'a')
             arquivo.write(mensagem)
             arquivo.close()
 
@@ -81,21 +97,21 @@ class Mensagens(ABC):
 class Usuarios:
 
     def __init__(self):
-        self._lock = Lock()
-        self._nome = 'usuarios.txt'
+        self.lock = Lock()
+        self.nome = 'usuarios.txt'
         usuarios = None
         try:
-            usuarios = open(self._nome, 'r')
+            usuarios = open(self.nome, 'r')
             print(f'    [+]Arquivo de usuários encontrado')
         except:
-            usuarios = open(self._nome, 'a')
+            usuarios = open(self.nome, 'a')
             print(f'    [-]Arquivo de usuários não encontrado')
         usuarios.close()
 
     def serializa(self):
         conteudo = []
-        with self._lock:
-            with open(self._nome, 'r') as arquivo:
+        with self.lock:
+            with open(self.nome, 'r') as arquivo:
                 conteudo = arquivo.readlines()
         return conteudo
 
@@ -104,42 +120,42 @@ class Usuarios:
         return f'{username} {password} {status} {pontos} {host} {port}\n'     
         
     def cria_novo_usuario(self, usuario, senha, host, porta) -> None:
-        with self._lock:
-            with open(self._nome, 'r') as arquivo:
+        with self.lock:
+            with open(self.nome, 'r') as arquivo:
                 conteudo = arquivo.readlines()
 
             if usuario not in [linha.split()[0] for linha in conteudo]:
-                with open(self._nome, 'a') as arquivo:
-                    arquivo.write(self._formatacao_dos_dados(usuario, senha, 'offline', '0', host, port))
+                with open(self.nome, 'a') as arquivo:
+                    arquivo.write(self.formatacao_dos_dados(usuario, senha, 'offline', '0', host, port))
             
 
     def altera_senha_do_usuario(self, usuario, senha_antiga, senha_nova) -> None:
-        with self._lock:
-            with open(self._nome, 'r') as arquivo:
+        with self.lock:
+            with open(self.nome, 'r') as arquivo:
                 conteudo = arquivo.readlines()
             for i in range(len(conteudo)):
                 username, password, status, pontos, host, port = conteudo[i].split()
                 if username == usuario:
                     password = senha_nova if password == senha_antiga else password
-                    conteudo[i] = self._formatacao_dos_dados(username, password, status, pontos, host, port)
-            with open(self._nome, 'w') as arquivo:
+                    conteudo[i] = self.formatacao_dos_dados(username, password, status, pontos, host, port)
+            with open(self.nome, 'w') as arquivo:
                 arquivo.writelines(conteudo)          
 
     def atualiza_status(self, usuario, status_antigo, status_novo) -> None:
-        with self._lock:
-            with open(self._nome, 'r') as arquivo:
+        with self.lock:
+            with open(self.nome, 'r') as arquivo:
                 conteudo = arquivo.readlines()
             for i in range(len(conteudo)):
                 username, password, status, pontos, host, port = conteudo[i].split()
                 if username == usuario:
                     status = status_novo if status == status_antigo else status
-                    conteudo[i] = self._formatacao_dos_dados(username, password, status, pontos, host, port)
-            with open(self._nome, 'w') as arquivo:
+                    conteudo[i] = self.formatacao_dos_dados(username, password, status, pontos, host, port)
+            with open(self.nome, 'w') as arquivo:
                 arquivo.writelines(conteudo)           
 
     def lista_pontuacao(self) -> None:
-        with self._lock:
-            with open(self._nome, 'r') as arquivo:
+        with self.lock:
+            with open(self.nome, 'r') as arquivo:
                 conteudo = arquivo.readlines()
             
             dados = []
@@ -151,77 +167,128 @@ class Usuarios:
                 print(linha)
 
     def lista_nao_offline(self) -> None:
-        with self._lock:
-            with open(self._nome, 'r') as arquivo:
+        with self.lock:
+            with open(self.nome, 'r') as arquivo:
                 conteudo = arquivo.readlines()
                 for linha in conteudo:
                     if linha.split()[2] != 'offline':
                         print(linha, end='')
 
 class Servidor(ABC):
+    def __init__(self) -> None:
+        self.interpretador = {
+            HELLO: self.hello,
+            NOVO: self.novo,
+            SENHA: self.senha,
+            ENTRA: self.entra,
+            LIDERES: self.lideres,
+            LISTA_CONECTADOS: self.conectados,
+            LISTA_TODOS: self.todos,
+            INICIA: self.inicia,
+            DESAFIO: self.desafio,
+            DESLOGA: self.desloga,
+            ATRASO: self.atraso,
+            ENCERRA: self.encerra,
+            TCHAU: self.tchau,
+            ACK: self.ack
+        }
 
-    def mostra_pontos():
-        pass
+    def ack(self, dados: list):
+        print(f' [+] Servidor().novo: Recebi {dados}')
+        self._envia(dados[-1], ACK)
 
-    def mostra_todos_usuarios():
-        pass
+    def tchau(self, dados: list):
+        print(f' [+] Servidor().novo: Recebi {dados}')
+        self._envia(dados[-1], ACK)
 
-    def mostra_usuarios_logados():
-        pass
+    def encerra(self, dados: list):
+        print(f' [+] Servidor().novo: Recebi {dados}')
+        self._envia(dados[-1], ACK)
 
-    def envia_heartbeat():
-        pass
+    def atraso(self, dados: list):
+        print(f' [+] Servidor().novo: Recebi {dados}')
+        self._envia(dados[-1], ACK)
 
-    def interpreta_pacote():
-        pass
+    def desloga(self, dados: list):
+        print(f' [+] Servidor().novo: Recebi {dados}')
+        self._envia(dados[-1], ACK)
 
-    def finaliza_jogo():
-        pass
+    def todos(self, dados: list):
+        print(f' [+] Servidor().novo: Recebi {dados}')
+        self._envia(dados[-1], ACK)
 
-    def inicializa_jogo():
-        pass
+    def desafio(self, dados: list):
+        print(f' [+] Servidor().novo: Recebi {dados}')
+        self._envia(dados[-1], ACK)
 
-    def login():
-        pass
+    def inicia(self, dados: list):
+        print(f' [+] Servidor().novo: Recebi {dados}')
+        self._envia(dados[-1], ACK)
 
-    def logout():
-        pass
+    def conectados(self, dados: list):
+        print(f' [+] Servidor().novo: Recebi {dados}')
+        self._envia(dados[-1], ACK)
 
-    def desafio():
-        pass
+    def lideres(self, dados: list):
+        print(f' [+] Servidor().novo: Recebi {dados}')
+        self._envia(dados[-1], ACK)
 
-    def envia():
-        pass
+    def entra(self, dados: list):
+        print(f' [+] Servidor().novo: Recebi {dados}')
+        self._envia(dados[-1], ACK)
+
+    def senha(self, dados: list):
+        print(f' [+] Servidor().novo: Recebi {dados}')
+        self._envia(dados[-1], ACK)
+
+    def novo(self, dados: list):
+        print(f' [+] Servidor().novo: Recebi {dados}')
+        self._envia(dados[-1], ACK)
+
+    def hello(self, dados: list):
+        print(' [+] Servidor().hello: Recebi HELLO')
+        self._envia(dados[-1],HELLO)
+    
+    def _envia(self, skt: socket, msg: str):
+        host,port = skt.getpeername()
+        skt.sendall(bytearray(msg.encode(encoding='utf-8')))
 
 
+    def interpreta_pacote(self, dados:list):
+        self.interpretador[dados[0][0]](dados)
 
 class ServidorTCP(Servidor):
     def __init__(self, usuarios: Usuarios, logs: Logs, host:str, port:int):
+        super().__init__()
         self.usuarios = usuarios
         self.logs = logs
-        self._host = host
-        self._port = port
-        self._skt = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
-        self._skt.bind((self._host,self._port))
-        self._threads = []
-        print(f'    [+]Servidor TCP iniciado em {self._host}:{port}') 
+        self.host = host
+        self.port = port
+        self.skt = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
+        self.skt.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1) #?
+        self.skt.bind((self.host,self.port))
+        self.threads = []
+        print(f' [+]Servidor TCP iniciado em {self.host}:{port}') 
 
     def cria_listener(self):
-        self._skt.listen()
+        self.skt.listen()
         while True:
-            conn, addr = self._skt.accept()
+            print(f' [+] ServidorTCP().cria_listener: esperando conexão')
+            conn, addr = self.skt.accept()
+            print(f' [+] ServidorTCP().cria_listener: conexão em {addr}')
             nova_thread = Thread(target=self.faz_leitura, args=(conn,addr))
-            self._threads.append(nova_thread)
+            self.threads.append(nova_thread)
             nova_thread.start()
 
     def faz_leitura(self, conn, addr) -> None:
         with conn:
-            print(f'    [+]Cliente TCP conectado em {addr}')
+            print(f' [+] ServidorTCP().faz_leitura:  {addr}')
             while True:
                 buffer = conn.recv(BUFFER_SIZE)
+                print(f' [+] ServidorTCP().faz_leitura: Recebi {buffer}')
                 if not buffer:
                     break
-                self.interpreta_pacote([buffer, conn])
+                self.interpreta_pacote([buffer.decode('utf-8'), conn])
 
     def faz_escrita(self, dados: List) -> None:
         buffer, conn = dados
@@ -231,24 +298,24 @@ class ServidorUDP(Servidor):
     def __init__(self, usuarios: Usuarios, logs: Logs, host:str, port:int):
         self.usuarios = usuarios
         self.logs = logs
-        self._host = host
-        self._port = port
-        self._skt = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self._skt.bind(((self._host,self._port)))
-        print(f'    [+]Servidor UDP iniciado em {self._host}:{port}') 
+        self.host = host
+        self.port = port
+        self.skt = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.skt.bind(((self.host,self.port)))
+        print(f'    [+]Servidor UDP iniciado em {self.host}:{port}') 
 
     def cria_listener(self):
             while True:
                 self.faz_leitura()
     
     def faz_leitura(self) -> None:
-        buffer, addr = self._skt.recvfrom(BUFFER_SIZE)
+        buffer, addr = self.skt.recvfrom(BUFFER_SIZE)
         print(f'    [+]Cliente UDP conectado em {addr}')
         self.interpreta_pacote([buffer, addr])    
 
     def faz_escrita(self, dados: List) -> None:
         buffer, addr = dados
-        self._skt.sendto(buffer, addr)
+        self.skt.sendto(buffer, addr)
 
     
 class Auxiliares:
@@ -273,7 +340,7 @@ if __name__ == '__main__':
     l = Logs()
 
     servidorTCP = ServidorTCP(u, l, HOST, port)
-    servidorUDP = ServidorUDP(u, l, HOST, port)
+    servidorUDP = ServidorUDP(u, l, HOST, port+1)
 
     servidores = []
     servidores.append(Thread(target = servidorTCP.cria_listener()))

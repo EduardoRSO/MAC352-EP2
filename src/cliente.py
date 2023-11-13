@@ -2,261 +2,215 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import List
 import sys
-import pacman
+import socket
+import select
+import time
+from pacman import *
 
-NOVO = '0'
-SENHA = '1'
-ENTRA = '2'
-LIDERES='3'
-LISTA_CONECTADOS = '4'
-LISTA_TODOS = '5'
-INICIA= '6'
-DESAFIO = '7'
-DESLOGA = '8'
-MOVE = '9'
-ATRASO = '10'
-ENCERRA  ='11'
-TCHAU = '12'
-TABULEIRO = '13'
+HOST = '127.0.0.1'
+PORT = '8989'
+BUFFER_SIZE = 4096
+PROMPT = "Pac-Man> "
 
-class Comandos(ABC):
-    @abstractmethod
-    def novo(self, dados: list) -> None:
-        pass
+# Identificador dos comandos nos pacotes
+HELLO = '0'
+NOVO = '1'
+SENHA = '2'
+ENTRA = '3'
+LIDERES='4'
+LISTA_CONECTADOS = '5'
+LISTA_TODOS = '6'
+INICIA= '7'
+DESAFIO = '8'
+DESLOGA = '9'
+MOVE = 'A'
+ATRASO = 'B'
+ENCERRA  ='C'
+TCHAU = 'D'
+TABULEIRO = 'E'
+ACK = 'F'
 
-    @abstractmethod
-    def senha(self, dados: list) -> None:
-        pass
+# Identificador dos comandos recebidos via input
 
-    @abstractmethod
-    def entra(self, dados: list) -> None:
-        pass
+C_NOVO = 'novo'
+C_SENHA = 'senha'
+C_ENTRA = 'entra'
+C_LIDERES = 'lideres'
+C_LISTA = 'l'
+C_INICIA ='inicia'
+C_DESAFIO = 'desafio'
+C_MOVE = 'move'    
+C_ATRASO = 'atraso'
+C_ENCERRA = 'encerra'
+C_SAI = 'sai'
+C_TCHAU ='tchau'
 
-    @abstractmethod
-    def lideres(self) -> None:
-        pass
+class Comandos():
 
-    @abstractmethod
-    def l(self) -> None:
-        pass
+    def constroi_pacote(self, argumentos: list):
+        string = ''
+        for item in argumentos:
+            string+= str(len(item))+item
+        return string
 
-    @abstractmethod
-    def inicia(self) -> None:
-        pass
-
-    @abstractmethod
-    def desafio(self, dados: list) -> None:
-        pass
-
-    @abstractmethod
-    def move(self, dados: list) -> None:
-        pass
-
-    @abstractmethod
-    def atraso(self) -> None:
-        pass
-
-    @abstractmethod
-    def encerra(self) -> None:
-        pass
-
-    @abstractmethod
-    def sai(self, dados: list) -> None:
-        pass
-
-    @abstractmethod
-    def tchau(self) -> None:
-        pass
-
-class Estados(Comandos, ABC):
-
-    @property
-    def cliente(self) -> Cliente:
-        return self._cliente
-
-    @cliente.setter
-    def cliente(self, cliente: Cliente) -> None:
-        self._cliente = cliente
-
-    def executa_comando(self, dados: list):
-        pass
-
-class EstadosNeutro(Estados):  # novo entra lideres l tchau
-
-    def novo(self, dados: list) -> None:
-        usuario,senha = dados
-        return f'{NOVO}{len(usuario)}{usuario}{len(senha)}{senha}'
+    def __init__(self, cliente: Cliente) -> None:
+        self.c = cliente
+    
+    def novo(self, argumentos: list) -> None:
+        self.envia_mensagem(self.c.serv_skt,NOVO+self.constroi_pacote(argumentos))
+        resultado, msg = self.recebe_mensagem(self.c.serv_skt)
 
     def senha(self, dados: list) -> None:
-        pass
+        print(dados)
 
+    
     def entra(self, dados: list) -> None:
-        usuario, senha = dados
-        return f'{ENTRA}{len(usuario)}{usuario}{len(senha)}{senha}'
+        print(dados)
+        c.estado = 'CONECTADO'
 
-    def lideres(self) -> None:
-        return f'{LIDERES}'
+    
+    def lideres(self, dados: list) -> None:
+        print(dados)
 
-    def l(self) -> None:
-        return f'{LISTA_CONECTADOS}'
+    
+    def l(self,dados: list) -> None:
+        print(dados)
 
-    def inicia(self) -> None:
-        pass
+    
+    def inicia(self,dados: list) -> None:
+        print(dados)
 
+    
     def desafio(self, dados: list) -> None:
-        pass
+        print(dados)
 
+    
     def move(self, dados: list) -> None:
-        pass
+        print(dados)
 
-    def atraso(self) -> None:
-        pass
+    
+    def atraso(self, dados: list) -> None:
+        print(dados)
 
-    def encerra(self) -> None:
-        pass
+    
+    def encerra(self, dados: list) -> None:
+        print(dados)
 
+    
     def sai(self, dados: list) -> None:
-        pass
+        print(dados)
 
-    def tchau(self) -> None:
-        return f'{TCHAU}'
+    
+    def tchau(self, dados: list) -> None:
+        print(dados)
 
-    def executa_comando(self, dados: list):
-        pass
-
-class EstadosConectado(Estados):  # senha lideres l inicia desafio sai
-
-    def novo(self, dados: list) -> None:
-        pass
-
-    def senha(self, dados: list) -> None:
-        usuario, senha_antiga, senha_nova = dados
-        return f'{SENHA}{len(usuario)}{usuario}{len(senha_antiga)}{senha_antiga}{len(senha_nova)}{senha_nova}'
-
-    def entra(self, dados: list) -> None:
-        pass
-
-    def lideres(self) -> None:
-        return f'{LIDERES}'
-
-    def l(self) -> None:
-        return f'{LISTA_CONECTADOS}'
-
-    def inicia(self) -> None:
-        return f'{INICIA}'
-
-    def desafio(self, dados: list) -> None:
-        usuario = dados
-        return f'{DESAFIO}{len(usuario)}{usuario}'
-
-    def move(self, dados: list) -> None:
-        pass
-
-    def atraso(self) -> None:
-        pass
-
-    def encerra(self) -> None:
-        pass
-
-    def sai(self, dados: list) -> None:
-        usuario = dados
-        return f'{DESLOGA}{len(usuario)}{usuario}'
-
-    def tchau(self) -> None:
-        pass
-
-    def executa_comando(self, dados: list):
-        pass
-
-class EstadosJogando(Estados):  # move atraso encerra
-
-    def novo(self, dados: list) -> None:
-        pass
-
-    def senha(self, dados: list) -> None:
-        pass
-
-    def entra(self, dados: list) -> None:
-        pass
-
-    def lideres(self) -> None:
-        pass
-
-    def l(self) -> None:
-        pass
-
-    def inicia(self) -> None:
-        pass
-
-    def desafio(self, dados: list) -> None:
-        pass
-
-    def move(self, dados: list) -> None:
-        direcao = dados
-        return f'{MOVE}{len(direcao)}{direcao}'
-
-    def atraso(self) -> None:
-        return f'{ATRASO}'    
-
-    def encerra(self) -> None:
-        return f'{ENCERRA}'
-
-    def sai(self, dados: list) -> None:
-        pass
-
-    def tchau(self) -> None:
-        pass
-
-    def executa_comando(self, dados: list):
-        pass
-
-class Cliente:
-    _estado = None
-
-    def __init__(self, estado: Estados) -> None:
-        self.clientes_transiciona_para(estado)
-
-    def clientes_transiciona_para(self, estado: Estados) -> None:
-        self._estado = estado
-        self._estado.cliente = self
-
-    def clientes_executa_comando(self, dados: list) -> None:
-        self._estado.executa_comando(dados)
-
-    #pacman deve ter um método que transcreve o tabuleiro para uma string
-    #pacman deve ser instanciado ao receber um tabuleiro em lista
-    #talvez o init do pacman nao deva ser o jogo propriamente dito
-    #se eu fizer um método que de fato inicia, eu conseguiria modularizar o codigo
-    #para obter o comportamento de que um cliente tem uma instancia de pacman
-    #mas o jogo só começa quando ele faz uma chamada do metodo start_game. 
-    # Esse start game que receberia o tabuleiro em lista.
-    #essa separação seria apenas para que eu pudesse utilizar os métodos 
-    #serializa_tabuleiro e deserializa_tabuleiro...
     def envia_tabuleiro(self, dados: list):  
-        #return f'{TABULEIRO}{linhas}{colunas}{tabuleiro_to_str}'
+        return json.dumps(self.pacman.tabuleiro)
+        
+    def recebe_tabuleiro(self, tabuleiro_str):
+        self.pacman = Pacman(json.loads(tabuleiro_str))
+
+    def envia_desafio(self, dados: list):
+        usuario, host, port = dados
+        oponente = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        oponente.connect((host, port))
+        self.envia_mensagem(dados, self.estado.desafio(dados))
+
+    def processa_resultado_do_jogo():
         pass
 
-    def recebe_tabuleiro(self, dados: list):
+    def envia_mensagem(self, skt: socket, mensagem: str):
+        print(f' [+] Comandos().envia_mensagem: Enviei {mensagem}')
+        skt.sendall(bytearray(mensagem.encode(encoding='utf-8')))
+
+    def recebe_mensagem(self, skt: socket):
+        msg = skt.recv(BUFFER_SIZE).decode('utf-8')
+        if msg == ACK:
+            print(f' [+] Comandos().recebe_mensagem: Recebi ACK')
+            return True, msg
+        else:
+            print(f' [-] Comandos().recebe_mensagem: Não recebi ACK')
+            return False, msg
+
+class Cliente():
+    oponente = None
+
+    def __init__(self) -> None:
+        self.comandos = Comandos(self)
+        self.estado = 'NEUTRO'
+        self.usuario = 'u'
+        self.senha = 's'
+        self.pontuacao = 0
+        self.latencia = []
+        self.heartbeat = [] 
+        self.pacman = Pacman(ESTADO_INICIAL)
+
+        self.interpretador = {
+            C_NOVO: self.comandos.novo,
+            C_SENHA: self.comandos.senha,
+            C_ENTRA: self.comandos.entra,
+            C_LIDERES: self.comandos.lideres,
+            C_LISTA:  self.comandos.l,
+            C_INICIA: self.comandos.inicia,
+            C_DESAFIO: self.comandos.desafio,
+            C_MOVE: self.comandos.move,
+            C_ATRASO: self.comandos.atraso,
+            C_ENCERRA: self.comandos.encerra,
+            C_SAI: self.comandos.sai,
+            C_TCHAU: self.comandos.tchau
+        }
+        self.comandos_do_estado = {
+            'NEUTRO': [C_NOVO, C_ENTRA, C_TCHAU],
+            'CONECTADO': [C_SENHA, C_LIDERES, C_LISTA, C_INICIA, C_DESAFIO, C_SAI],
+            'JOGANDO': [C_MOVE, C_ATRASO, C_ENCERRA]
+        }
+
+    def processa_oponente():
         pass
+
+    def processa_cliente(self):
+        while True:
+            comando = input(PROMPT)
+            if comando != '':
+                acao = comando.split()[0]
+                argumentos = comando.split()[1:]
+                if acao in self.comandos_do_estado[self.estado]:
+                    print(f' [+] Cliente().processa_cliente: Recebi o comando {acao} com argumentos {argumentos}')
+                    self.interpretador[acao](argumentos)
+
 
 class ClienteTCP(Cliente):
     _estado = None
     def __init__(self, host, port) -> None:
-        super().__init__(EstadosNeutro())
-        self._host = host
-        self._port = port
-        self._usuario = 'u'
-        self._senha = 's'
-        self._latencia = []
-        self._heartbeat = []
-        print(self._estado, self._host, self._port, self._usuario, self._senha, self._latencia, self._heartbeat)
-    
+        super().__init__()
+        self.host = host
+        self.port = int(port)
+        self.skt = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
+        self.skt.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1) #?
+        self.skt.bind((self.host,self.port))
+        print(self.host, self.port, self.usuario, self.senha, self.latencia, self.heartbeat)
+        print(f' [+] ClienteTCP().__init__: {host}:{port}')
+
+    def conecta_com_servidor(self, serv_host, serv_port):
+        self.serv_skt = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.serv_skt.connect((serv_host, int(serv_port)))
+        self.serv_skt.sendall(bytearray(HELLO.encode(encoding='utf-8')))
+        msg = self.serv_skt.recv(BUFFER_SIZE).decode('utf-8')
+        if msg == HELLO:
+            print(f' [+] ClienteTCP().conecta_com_servidor: Recebi HELLO')
+            self.processa_cliente()
+        else:
+            print(f' [-] ClienteTCP().conecta_com_servidor: Não recebi HELLO')
 
 class ClienteUDP(Cliente):
     pass
+        
 
 if __name__ == '__main__':
-    dummy, host, port, tipo = sys.argv
+    try:
+        dummy, host, port, tipo = sys.argv
+    except:
+        dummy, host, port, tipo = ['dummy',HOST,PORT,'TCP']
     c = ''
     if tipo == 'TCP':
         c = ClienteTCP(host, port)
@@ -264,5 +218,6 @@ if __name__ == '__main__':
         c = ClienteUDP(host, port)
     else:
         c = ClienteTCP(host, port)
+    c.conecta_com_servidor(HOST, 6969)
 
     
