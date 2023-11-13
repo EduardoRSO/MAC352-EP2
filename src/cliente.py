@@ -22,7 +22,7 @@ LISTA_CONECTADOS = '5'
 LISTA_TODOS = '6'
 INICIA= '7'
 DESAFIO = '8'
-DESLOGA = '9'
+SAI = '9'
 MOVE = 'A'
 ATRASO = 'B'
 ENCERRA  ='C'
@@ -47,8 +47,8 @@ C_TCHAU ='tchau'
 
 class Comandos():
 
-    def constroi_pacote(self, argumentos: list):
-        string = ''
+    def constroi_pacote(self, tipo, argumentos: list):
+        string = tipo
         for item in argumentos:
             string+= str(len(item))+item
         return string
@@ -57,52 +57,66 @@ class Comandos():
         self.c = cliente
     
     def novo(self, argumentos: list) -> None:
-        self.envia_mensagem(self.c.serv_skt,NOVO+self.constroi_pacote(argumentos))
+        self.envia_mensagem(self.c.serv_skt,self.constroi_pacote(NOVO, argumentos))
         resultado, msg = self.recebe_mensagem(self.c.serv_skt)
 
     def senha(self, dados: list) -> None:
-        print(dados)
-
+        self.envia_mensagem(self.c.serv_skt,self.constroi_pacote(SENHA,dados))
+        resultado, msg = self.recebe_mensagem(self.c.serv_skt)
     
     def entra(self, dados: list) -> None:
-        print(dados)
-        c.estado = 'CONECTADO'
+        self.envia_mensagem(self.c.serv_skt,self.constroi_pacote(ENTRA,dados))
+        resultado, msg = self.recebe_mensagem(self.c.serv_skt)
+        if resultado == True:
+            self.c.estado = 'CONECTADO'
 
-    
     def lideres(self, dados: list) -> None:
-        print(dados)
-
+        self.envia_mensagem(self.c.serv_skt,self.constroi_pacote(LIDERES,dados))
+        resultado, msg = self.recebe_mensagem(self.c.serv_skt)
     
     def l(self,dados: list) -> None:
-        print(dados)
+        self.envia_mensagem(self.c.serv_skt,self.constroi_pacote(LISTA_CONECTADOS,dados))
+        resultado, msg = self.recebe_mensagem(self.c.serv_skt)
 
     
     def inicia(self,dados: list) -> None:
-        print(dados)
-
+        self.envia_mensagem(self.c.serv_skt,self.constroi_pacote(INICIA,dados))
+        resultado, msg = self.recebe_mensagem(self.c.serv_skt)
+        if resultado == True:
+            self.c.estado = 'JOGANDO'
     
     def desafio(self, dados: list) -> None:
-        print(dados)
-
+        self.envia_mensagem(self.c.serv_skt,self.constroi_pacote(DESAFIO,dados))
+        resultado, msg = self.recebe_mensagem(self.c.serv_skt)
+        if resultado == True:
+            self.c.estado = 'JOGANDO'
     
     def move(self, dados: list) -> None:
-        print(dados)
+        self.envia_mensagem(self.c.serv_skt,self.constroi_pacote(MOVE,dados))
+        resultado, msg = self.recebe_mensagem(self.c.serv_skt)
 
     
     def atraso(self, dados: list) -> None:
-        print(dados)
+        self.envia_mensagem(self.c.serv_skt,self.constroi_pacote(ATRASO,dados))
+        resultado, msg = self.recebe_mensagem(self.c.serv_skt)
 
     
     def encerra(self, dados: list) -> None:
-        print(dados)
-
+        self.envia_mensagem(self.c.serv_skt,self.constroi_pacote(ENCERRA,dados))
+        resultado, msg = self.recebe_mensagem(self.c.serv_skt)
+        if resultado == True:
+            self.c.estado = 'CONECTADO'
     
     def sai(self, dados: list) -> None:
-        print(dados)
-
+        self.envia_mensagem(self.c.serv_skt,self.constroi_pacote(SAI,dados))
+        resultado, msg = self.recebe_mensagem(self.c.serv_skt)
+        if resultado == True:
+            self.c.estado = 'NEUTRO'
     
     def tchau(self, dados: list) -> None:
-        print(dados)
+        self.envia_mensagem(self.c.serv_skt,self.constroi_pacote(TCHAU,dados))
+        resultado, msg = self.recebe_mensagem(self.c.serv_skt)
+        exit()
 
     def envia_tabuleiro(self, dados: list):  
         return json.dumps(self.pacman.tabuleiro)
