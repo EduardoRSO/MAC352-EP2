@@ -57,63 +57,78 @@ class Comandos():
         self.c = cliente
     
     def novo(self, argumentos: list) -> None:
+        print(f' Comandos().novo: Enviei {argumentos}')
         self.envia_mensagem(self.c.serv_skt,self.constroi_pacote(NOVO, argumentos))
         resultado, msg = self.recebe_mensagem(self.c.serv_skt)
 
     def senha(self, dados: list) -> None:
+        print(f' Comandos().senha: Enviei {dados}')
         self.envia_mensagem(self.c.serv_skt,self.constroi_pacote(SENHA,dados))
         resultado, msg = self.recebe_mensagem(self.c.serv_skt)
     
     def entra(self, dados: list) -> None:
+        print(f' Comandos().entra: Enviei {dados}')
         self.envia_mensagem(self.c.serv_skt,self.constroi_pacote(ENTRA,dados))
         resultado, msg = self.recebe_mensagem(self.c.serv_skt)
         if resultado == True:
             self.c.estado = 'CONECTADO'
 
     def lideres(self, dados: list) -> None:
+        print(f' Comandos().lideres: Enviei {dados}')
         self.envia_mensagem(self.c.serv_skt,self.constroi_pacote(LIDERES,dados))
         resultado, msg = self.recebe_mensagem(self.c.serv_skt)
     
     def l(self,dados: list) -> None:
+        print(f' Comandos().l: Enviei {dados}')
         self.envia_mensagem(self.c.serv_skt,self.constroi_pacote(LISTA_CONECTADOS,dados))
         resultado, msg = self.recebe_mensagem(self.c.serv_skt)
-
+        if resultado == False:
+            print(f'{PROMPT} CONECTADOS:')
+            for index, linha in enumerate(msg.split('\n')[:-1]):
+                print(f'       >[{index}]: {linha}')
     
     def inicia(self,dados: list) -> None:
+        print(f' Comandos().inicia: Enviei {dados}')
         self.envia_mensagem(self.c.serv_skt,self.constroi_pacote(INICIA,dados))
         resultado, msg = self.recebe_mensagem(self.c.serv_skt)
         if resultado == True:
             self.c.estado = 'JOGANDO'
     
     def desafio(self, dados: list) -> None:
+        print(f' Comandos().desafio: Enviei {dados}')
         self.envia_mensagem(self.c.serv_skt,self.constroi_pacote(DESAFIO,dados))
         resultado, msg = self.recebe_mensagem(self.c.serv_skt)
         if resultado == True:
             self.c.estado = 'JOGANDO'
     
     def move(self, dados: list) -> None:
+        print(f' Comandos().move: Enviei {dados}')
         self.envia_mensagem(self.c.serv_skt,self.constroi_pacote(MOVE,dados))
         resultado, msg = self.recebe_mensagem(self.c.serv_skt)
 
     
     def atraso(self, dados: list) -> None:
+        print(f' Comandos().atraso: Enviei {dados}')
         self.envia_mensagem(self.c.serv_skt,self.constroi_pacote(ATRASO,dados))
         resultado, msg = self.recebe_mensagem(self.c.serv_skt)
 
     
     def encerra(self, dados: list) -> None:
+        print(f' Comandos().encerra: Enviei {dados}')
         self.envia_mensagem(self.c.serv_skt,self.constroi_pacote(ENCERRA,dados))
         resultado, msg = self.recebe_mensagem(self.c.serv_skt)
         if resultado == True:
             self.c.estado = 'CONECTADO'
     
     def sai(self, dados: list) -> None:
+        print(f' Comandos().sai: Enviei {dados}')
         self.envia_mensagem(self.c.serv_skt,self.constroi_pacote(SAI,dados))
         resultado, msg = self.recebe_mensagem(self.c.serv_skt)
         if resultado == True:
             self.c.estado = 'NEUTRO'
     
     def tchau(self, dados: list) -> None:
+        print(f' Comandos().tchau: Enviei {dados}')
         self.envia_mensagem(self.c.serv_skt,self.constroi_pacote(TCHAU,dados))
         resultado, msg = self.recebe_mensagem(self.c.serv_skt)
         exit()
@@ -125,6 +140,7 @@ class Comandos():
         self.pacman = Pacman(json.loads(tabuleiro_str))
 
     def envia_desafio(self, dados: list):
+        print(f' Comandos().desafio: Enviei {dados}')
         usuario, host, port = dados
         oponente = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         oponente.connect((host, port))
@@ -145,6 +161,16 @@ class Comandos():
         else:
             print(f' [-] Comandos().recebe_mensagem: Não recebi ACK')
             return False, msg
+        
+    def verifica_pacotes_recebidos(self):
+        #setblocking permite que seja feito a leitura do buffer do socket sem que haja a interrupção do fluxo do programa até que haja algo para ser lido
+        self.c.serv_skt.setblocking(0)
+        try:
+            resultado, msg = self.recebe_mensagem(self.c.serv_skt)
+            print(f' [+] Comandos().verifica_pacotes_recebidos: {resultado}, {msg}')
+        except BlockingIOError:
+            print(f' [+] Comandos().verifica_pacotes_recebidos: Nada recebido')
+        self.c.serv_skt.setblocking(1)
 
 class Cliente():
     oponente = None
@@ -182,8 +208,10 @@ class Cliente():
     def processa_oponente():
         pass
 
+
     def processa_cliente(self):
         while True:
+            self.comandos.verifica_pacotes_recebidos()
             comando = input(PROMPT)
             if comando != '':
                 acao = comando.split()[0]
