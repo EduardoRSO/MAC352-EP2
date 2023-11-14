@@ -204,12 +204,14 @@ class Usuarios:
 
     def lista_nao_offline(self) -> None:
         with self.lock:
+            conectados = ''
             with open(self.nome, 'r') as arquivo:
                 conteudo = arquivo.readlines()
                 for linha in conteudo:
                     if linha.split()[2] != 'offline':
-                        print(linha, end='')
+                        conectados += linha
             print(f' [+] Usuarios().lista_nao_offline: Lista gerada')
+            return conectados
 
 class Servidor(ABC):
     def __init__(self, usuarios: Usuarios, logs: Logs, host:str, port:int) -> None:
@@ -293,8 +295,9 @@ class Servidor(ABC):
 
     def conectados(self, dados: list):
         print(f' [+] Servidor().conectados: Recebi {dados[0]}')
-        self.usuarios.lista_nao_offline()
-        self._envia(dados[-1], ACK)
+        conectados = self.usuarios.lista_nao_offline()
+        #self._envia(dados[-1], ACK)
+        self._envia(dados[-1], conectados)
 
     def lideres(self, dados: list):
         print(f' [+] Servidor().lideres: Recebi {dados[0]}')
@@ -328,7 +331,7 @@ class Servidor(ABC):
     def hello(self, dados: list):
         print(' [+] Servidor().hello: Recebi HELLO')
         self._envia(dados[-1],HELLO)
-    
+
     def _envia(self, skt: socket, msg: str):
         skt.sendall(bytearray(msg.encode(encoding='utf-8')))
 
