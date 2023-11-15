@@ -3,15 +3,15 @@ from abc import ABC, abstractmethod
 from typing import List
 import sys
 import socket
-import select
 import time
 from pacman import *
+from threading import Thread, Lock  # https://docs.python.org/3/library/threading.html
 
 HOST = '127.0.0.1'
 PORT = '8989'
 BUFFER_SIZE = 4096
 PROMPT = "Pac-Man> "
-
+CONSTANTE = 2
 # Identificador dos comandos nos pacotes
 HELLO = '0'
 NOVO = '1'
@@ -29,6 +29,8 @@ ENCERRA  ='C'
 TCHAU = 'D'
 TABULEIRO = 'E'
 ACK = 'F'
+HEARTBEAT = 'G'
+END='|'
 
 # Identificador dos comandos recebidos via input
 
@@ -44,6 +46,10 @@ C_ATRASO = 'atraso'
 C_ENCERRA = 'encerra'
 C_SAI = 'sai'
 C_TCHAU ='tchau'
+C_HEARTBEAT = HEARTBEAT
+
+
+comandos_validos = [C_NOVO, C_SENHA, C_ENTRA, C_LIDERES, C_LISTA, C_INICIA, C_DESAFIO, C_MOVE, C_ATRASO, C_ENCERRA, C_SAI, C_TCHAU]
 
 class Comandos():
 
@@ -58,30 +64,32 @@ class Comandos():
     
     def novo(self, argumentos: list) -> None:
         print(f' Comandos().novo: Enviei {argumentos}')
-        self.envia_mensagem(self.c.serv_skt,self.constroi_pacote(NOVO, argumentos))
-        resultado, msg = self.recebe_mensagem(self.c.serv_skt)
+        self.envia_mensagem(self.c.skt,self.constroi_pacote(NOVO, argumentos))
+        resultado, msg = self.recebe_mensagem(self.c.skt)
 
     def senha(self, dados: list) -> None:
         print(f' Comandos().senha: Enviei {dados}')
-        self.envia_mensagem(self.c.serv_skt,self.constroi_pacote(SENHA,dados))
-        resultado, msg = self.recebe_mensagem(self.c.serv_skt)
+        self.envia_mensagem(self.c.skt,self.constroi_pacote(SENHA,dados))
+        resultado, msg = self.recebe_mensagem(self.c.skt)
     
     def entra(self, dados: list) -> None:
         print(f' Comandos().entra: Enviei {dados}')
-        self.envia_mensagem(self.c.serv_skt,self.constroi_pacote(ENTRA,dados))
-        resultado, msg = self.recebe_mensagem(self.c.serv_skt)
+        self.envia_mensagem(self.c.skt,self.constroi_pacote(ENTRA,dados))
+        resultado, msg = self.recebe_mensagem(self.c.skt)
         if resultado == True:
+            self.c.usuario = dados[0]
+            self.c.senha = dados[1]
             self.c.estado = 'CONECTADO'
 
     def lideres(self, dados: list) -> None:
         print(f' Comandos().lideres: Enviei {dados}')
-        self.envia_mensagem(self.c.serv_skt,self.constroi_pacote(LIDERES,dados))
-        resultado, msg = self.recebe_mensagem(self.c.serv_skt)
+        self.envia_mensagem(self.c.skt,self.constroi_pacote(LIDERES,dados))
+        resultado, msg = self.recebe_mensagem(self.c.skt)
     
     def l(self,dados: list) -> None:
         print(f' Comandos().l: Enviei {dados}')
-        self.envia_mensagem(self.c.serv_skt,self.constroi_pacote(LISTA_CONECTADOS,dados))
-        resultado, msg = self.recebe_mensagem(self.c.serv_skt)
+        self.envia_mensagem(self.c.skt,self.constroi_pacote(LISTA_CONECTADOS,dados))
+        resultado, msg = self.recebe_mensagem(self.c.skt)
         if resultado == False:
             print(f'{PROMPT} CONECTADOS:')
             for index, linha in enumerate(msg.split('\n')[:-1]):
@@ -89,48 +97,54 @@ class Comandos():
     
     def inicia(self,dados: list) -> None:
         print(f' Comandos().inicia: Enviei {dados}')
-        self.envia_mensagem(self.c.serv_skt,self.constroi_pacote(INICIA,dados))
-        resultado, msg = self.recebe_mensagem(self.c.serv_skt)
+        self.envia_mensagem(self.c.skt,self.constroi_pacote(INICIA,[self.c.usuario]))
+        resultado, msg = self.recebe_mensagem(self.c.skt)
         if resultado == True:
             self.c.estado = 'JOGANDO'
     
     def desafio(self, dados: list) -> None:
-        print(f' Comandos().desafio: Enviei {dados}')
-        self.envia_mensagem(self.c.serv_skt,self.constroi_pacote(DESAFIO,dados))
-        resultado, msg = self.recebe_mensagem(self.c.serv_skt)
-        if resultado == True:
-            self.c.estado = 'JOGANDO'
-    
+        print(f' [+] Comandos().desafio: Enviei {dados}')
+        self.envia_mensagem(self.c.skt,self.constroi_pacote(DESAFIO,dados))
+        resultado, msg = self.recebe_mensagem(self.c.skt)
+        if not resultado:
+            #self.oponente_skt = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            host,port = msg.split()
+            port = int(port)+CONSTANTE
+            print(f' [+] Comandos().desafio: Conectando em {host}:{port}')    
+            self.c.desafio_atuante = socket.socket()
+            self.c.desafio_atuante.connect((host,port))
+            self.c.desafio_atuante.sendall(bytearray(HELLO.encode(encoding='utf-8')))
+            self.c.desafio_ouvinte.close()
+
     def move(self, dados: list) -> None:
         print(f' Comandos().move: Enviei {dados}')
-        self.envia_mensagem(self.c.serv_skt,self.constroi_pacote(MOVE,dados))
-        resultado, msg = self.recebe_mensagem(self.c.serv_skt)
+        self.envia_mensagem(self.c.skt,self.constroi_pacote(MOVE,dados))
+        resultado, msg = self.recebe_mensagem(self.c.skt)
 
     
     def atraso(self, dados: list) -> None:
         print(f' Comandos().atraso: Enviei {dados}')
-        self.envia_mensagem(self.c.serv_skt,self.constroi_pacote(ATRASO,dados))
-        resultado, msg = self.recebe_mensagem(self.c.serv_skt)
+        self.envia_mensagem(self.c.skt,self.constroi_pacote(ATRASO,dados))
+        resultado, msg = self.recebe_mensagem(self.c.skt)
 
-    
     def encerra(self, dados: list) -> None:
         print(f' Comandos().encerra: Enviei {dados}')
-        self.envia_mensagem(self.c.serv_skt,self.constroi_pacote(ENCERRA,dados))
-        resultado, msg = self.recebe_mensagem(self.c.serv_skt)
+        self.envia_mensagem(self.c.skt,self.constroi_pacote(ENCERRA,[self.c.usuario]))
+        resultado, msg = self.recebe_mensagem(self.c.skt)
         if resultado == True:
             self.c.estado = 'CONECTADO'
     
     def sai(self, dados: list) -> None:
         print(f' Comandos().sai: Enviei {dados}')
-        self.envia_mensagem(self.c.serv_skt,self.constroi_pacote(SAI,dados))
-        resultado, msg = self.recebe_mensagem(self.c.serv_skt)
+        self.envia_mensagem(self.c.skt,self.constroi_pacote(SAI,[self.c.usuario]))
+        resultado, msg = self.recebe_mensagem(self.c.skt)
         if resultado == True:
             self.c.estado = 'NEUTRO'
     
     def tchau(self, dados: list) -> None:
         print(f' Comandos().tchau: Enviei {dados}')
-        self.envia_mensagem(self.c.serv_skt,self.constroi_pacote(TCHAU,dados))
-        resultado, msg = self.recebe_mensagem(self.c.serv_skt)
+        self.envia_mensagem(self.c.skt,self.constroi_pacote(TCHAU,dados))
+        resultado, msg = self.recebe_mensagem(self.c.skt)
         exit()
 
     def envia_tabuleiro(self, dados: list):  
@@ -142,8 +156,6 @@ class Comandos():
     def envia_desafio(self, dados: list):
         print(f' Comandos().desafio: Enviei {dados}')
         usuario, host, port = dados
-        oponente = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        oponente.connect((host, port))
         self.envia_mensagem(dados, self.estado.desafio(dados))
 
     def processa_resultado_do_jogo():
@@ -155,6 +167,7 @@ class Comandos():
 
     def recebe_mensagem(self, skt: socket):
         msg = skt.recv(BUFFER_SIZE).decode('utf-8')
+        msg = msg.replace(HEARTBEAT,'')
         if msg == ACK:
             print(f' [+] Comandos().recebe_mensagem: Recebi ACK')
             return True, msg
@@ -162,19 +175,33 @@ class Comandos():
             print(f' [-] Comandos().recebe_mensagem: Não recebi ACK')
             return False, msg
         
-    def verifica_pacotes_recebidos(self):
+    def heartbeat(self):
+        self.envia_mensagem(self.c.skt,ACK)
+        
+    def verifica_pacotes_servidor_recebidos(self):
         #setblocking permite que seja feito a leitura do buffer do socket sem que haja a interrupção do fluxo do programa até que haja algo para ser lido
-        self.c.serv_skt.setblocking(0)
+        self.c.skt.setblocking(0)
         try:
-            resultado, msg = self.recebe_mensagem(self.c.serv_skt)
+            resultado, msg = self.recebe_mensagem(self.c.skt)
             print(f' [+] Comandos().verifica_pacotes_recebidos: {resultado}, {msg}')
+            self.heartbeat()
         except BlockingIOError:
             print(f' [+] Comandos().verifica_pacotes_recebidos: Nada recebido')
-        self.c.serv_skt.setblocking(1)
-
+        self.c.skt.setblocking(1)
+        
+    def verifica_pacotes_desafiante(self):
+        if self.c.desafio_atuante != None:
+            self.c.desafio_atuante.setblocking(0)
+            try:
+                data = self.recebe_mensagem(self.c.desafio_atuante)
+                self.envia_mensagem(self.c.desafio_atuante, HELLO)
+                print(data)
+            except BlockingIOError:
+                pass
+            self.c.desafio_atuante.setblocking(0)    
+    
 class Cliente():
-    oponente = None
-
+    desafio_atuante = None
     def __init__(self) -> None:
         self.comandos = Comandos(self)
         self.estado = 'NEUTRO'
@@ -184,7 +211,6 @@ class Cliente():
         self.latencia = []
         self.heartbeat = [] 
         self.pacman = Pacman(ESTADO_INICIAL)
-
         self.interpretador = {
             C_NOVO: self.comandos.novo,
             C_SENHA: self.comandos.senha,
@@ -197,7 +223,7 @@ class Cliente():
             C_ATRASO: self.comandos.atraso,
             C_ENCERRA: self.comandos.encerra,
             C_SAI: self.comandos.sai,
-            C_TCHAU: self.comandos.tchau
+            C_TCHAU: self.comandos.tchau,
         }
         self.comandos_do_estado = {
             'NEUTRO': [C_NOVO, C_ENTRA, C_TCHAU],
@@ -205,39 +231,56 @@ class Cliente():
             'JOGANDO': [C_MOVE, C_ATRASO, C_ENCERRA]
         }
 
-    def processa_oponente():
-        pass
-
-
     def processa_cliente(self):
         while True:
-            self.comandos.verifica_pacotes_recebidos()
+            self.comandos.verifica_pacotes_desafiante()
             comando = input(PROMPT)
-            if comando != '':
+            if self.comando_valido(comando):
                 acao = comando.split()[0]
                 argumentos = comando.split()[1:]
                 if acao in self.comandos_do_estado[self.estado]:
                     print(f' [+] Cliente().processa_cliente: Recebi o comando {acao} com argumentos {argumentos}')
                     self.interpretador[acao](argumentos)
+        
+    def comando_valido(self, comando):
+        for valido in comandos_validos:
+            if valido in comando:
+                return True
+            
+    def desafio_escuta_background(self):
+        self.desafio_ouvinte.listen()
+        while True:
+            conn, addr = self.desafio_ouvinte.accept()
+            if conn:
+                self.desafio_atuante = conn 
+            if self.desafio_atuante != None:
+                self.desafio_ouvinte.close()
+                break
 
-
+    def configura_desafio_ouvinte(self):
+        self.desafio_ouvinte = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.desafio_ouvinte.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1) #?
+        self.desafio_ouvinte.bind((host,self.skt.getsockname()[1]+CONSTANTE)) 
+        desafio_thread = Thread(target=self.desafio_escuta_background)
+        desafio_thread.start()
+    
 class ClienteTCP(Cliente):
     _estado = None
     def __init__(self, host, port) -> None:
         super().__init__()
-        self.host = host
-        self.port = int(port)
         self.skt = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
         self.skt.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1) #?
-        self.skt.bind((self.host,self.port))
-        print(self.host, self.port, self.usuario, self.senha, self.latencia, self.heartbeat)
-        print(f' [+] ClienteTCP().__init__: {host}:{port}')
+        self.skt.bind((host,port))
+        self.configura_desafio_ouvinte()
+        print(self.usuario, self.senha, self.latencia, self.heartbeat)
+        print(f' [+] ClienteTCP().__init__: {self.skt.getsockname()}')
+        print(f' [+] ClienteTCP().__init__: {self.desafio_ouvinte.getsockname()}')
 
     def conecta_com_servidor(self, serv_host, serv_port):
-        self.serv_skt = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.serv_skt.connect((serv_host, int(serv_port)))
-        self.serv_skt.sendall(bytearray(HELLO.encode(encoding='utf-8')))
-        msg = self.serv_skt.recv(BUFFER_SIZE).decode('utf-8')
+        #self.serv_skt = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.skt.connect((serv_host, int(serv_port)))
+        self.skt.sendall(bytearray(HELLO.encode(encoding='utf-8')))
+        msg = self.skt.recv(BUFFER_SIZE).decode('utf-8')
         if msg == HELLO:
             print(f' [+] ClienteTCP().conecta_com_servidor: Recebi HELLO')
             self.processa_cliente()
@@ -252,7 +295,7 @@ if __name__ == '__main__':
     try:
         dummy, host, port, tipo = sys.argv
     except:
-        dummy, host, port, tipo = ['dummy',HOST,PORT,'TCP']
+        dummy, host, port, tipo = ['dummy',HOST,0,'TCP']
     c = ''
     if tipo == 'TCP':
         c = ClienteTCP(host, port)
