@@ -1,5 +1,6 @@
 from array import *
 import random
+import json
 
 PAREDE = '*'
 PONTO= '.'
@@ -24,16 +25,16 @@ ESTADO_INICIAL = [
 [[PAREDE],[PAREDE],[PAREDE],[PAREDE],[PAREDE],[PAREDE],[PONTO],[PAREDE],[PAREDE],[PONTO],[PONTO],[PONTO],[VAZIO],[PONTO],[PONTO],[PONTO],[PONTO],[PONTO],[PAREDE],[PONTO],[PAREDE],[PAREDE],[PAREDE],[PAREDE],[PAREDE],[PAREDE],[PAREDE]],
 [[PAREDE],[PAREDE],[PAREDE],[PAREDE],[PAREDE],[PAREDE],[PONTO],[PAREDE],[PAREDE],[PONTO],[PAREDE],[PAREDE],[PAREDE],[PAREDE],[PAREDE],[PAREDE],[PAREDE],[PONTO],[PAREDE],[PAREDE],[PONTO],[PAREDE],[PAREDE],[PAREDE],[PAREDE],[PAREDE],[PAREDE]],
 [[PAREDE],[PAREDE],[PAREDE],[PAREDE],[PAREDE],[PAREDE],[PONTO],[PAREDE],[PAREDE],[PONTO],[PAREDE],[PONTO],[PONTO],['f'],[PONTO],[PONTO],[PAREDE],[PONTO],[PAREDE],[PAREDE],[PONTO],[PAREDE],[PAREDE],[PAREDE],[PAREDE],[PAREDE],[PAREDE]],
-[[PONTO],[PACMAN],[PONTO],[PONTO],[PONTO],[VAZIO],[PONTO],[PONTO],[PONTO],[PONTO],[PAREDE],[PONTO],[PONTO],[PONTO],[PONTO],[PONTO],[PAREDE],[PONTO],[PONTO],[PONTO],[PONTO],[PONTO],[PONTO],[PONTO],[PONTO],[PONTO],[PONTO]],
+[[PONTO],[PONTO],[PONTO],[PONTO],[PONTO],[VAZIO],[PONTO],[PONTO],[PONTO],[PONTO],[PAREDE],[PACMAN],[PONTO],[PONTO],[PONTO],[PONTO],[PAREDE],[PONTO],[PONTO],[PONTO],[PONTO],[PONTO],[PONTO],[PONTO],[PONTO],[PONTO],[PONTO]],
 [[PAREDE],[PAREDE],[PAREDE],[PAREDE],[PAREDE],[PAREDE],[PONTO],[PAREDE],[PAREDE],[PONTO],[PAREDE],[PONTO],[PONTO],['F','F','F','F'],[PONTO],[PONTO],[PAREDE],[PONTO],[PAREDE],[PAREDE],[PONTO],[PAREDE],[PAREDE],[PAREDE],[PAREDE],[PAREDE],[PAREDE]]
 ]
 
 
-class Tabuleiro:
-    def __init__(self, estado) -> None:
-        self._tabuleiro = estado
-        self._linhas = len(estado)-1
-        self._colunas = len(estado[0])-1 
+class Pacman:
+    def __init__(self, tabuleiro) -> None:
+        self._tabuleiro = tabuleiro
+        self._linhas = len(tabuleiro)-1
+        self._colunas = len(tabuleiro[0])-1 
         self._posicao_pacman = SPAWN_PACMAN if self._encontra_no_tabuleiro(PACMAN) == None else self._encontra_no_tabuleiro(PACMAN)
         self._posicao_fantasmas_locais = self._encontra_fantasmas_no_tabuleiro()
         self._posicao_fantasma_remoto = SPAWN_FANTASMA_REMOTO if self._encontra_no_tabuleiro(FANSTASMA_REMOTO) == None else self._encontra_no_tabuleiro(FANSTASMA_REMOTO) 
@@ -104,13 +105,13 @@ class Tabuleiro:
                     print(coluna[-1], end=' ')
             print()
         print()
-        print(self._tabuleiro)
+        #print(self._tabuleiro)
 
     def movimenta_todos(self, direcao):
         self.movimenta_fantasmas_locais()
         self.colisao_fantasma_local()
         
-        self.movimenta_fantasma_remoto()
+        self.movimenta_fantasma_remoto(random.choice(list(movimentos.keys())))
         self.colisao_fantasma_remoto()
         
         self.movimenta_pacman(direcao)
@@ -127,12 +128,15 @@ class Tabuleiro:
         self._posicao_fantasmas_locais = movimentos_realizados
 
     #invoca o método de movimento para o fantasma remoto. DEVE receber a DIRECAO
-    def movimenta_fantasma_remoto(self):
-        direcao = movimentos[random.choice(list(movimentos.keys()))]
-        self._posicao_fantasma_remoto = self.movimenta(self._posicao_fantasma_remoto, direcao, FANSTASMA_REMOTO)
+    def movimenta_fantasma_remoto(self, direcao):
+        direcao = direcao.upper()
+        if direcao in movimentos.keys():
+            self._posicao_fantasma_remoto = self.movimenta(self._posicao_fantasma_remoto, movimentos[direcao], FANSTASMA_REMOTO)
 
-    def movimenta_pacman(self, direcao):
-        self._posicao_pacman = self.movimenta(self._posicao_pacman, direcao, PACMAN)
+    def movimenta_pacman(self, direcao:str):
+        direcao = direcao.upper()
+        if direcao in movimentos.keys():
+            self._posicao_pacman = self.movimenta(self._posicao_pacman, movimentos[direcao], PACMAN)
 
     def movimenta(self, posicao_antiga, direcao, simbolo):
         posicao = self._calcula_nova_posicao(posicao_antiga, direcao)
@@ -171,6 +175,7 @@ class Tabuleiro:
         objeto = self._acessa_simbolo(self._posicao_pacman)
         if objeto == PONTO:
             self._remove_simbolo(self._posicao_pacman)
+            self._pontuacao +=1
         elif objeto in [SOBREPOSICAO, FANSTASMA_REMOTO, FANSTASMA_LOCAL]:
             self._posicao_pacman = SPAWN_PACMAN
         self._insere_simbolo(self._posicao_pacman, PACMAN)
@@ -181,7 +186,7 @@ class Tabuleiro:
 
 
 if __name__ == '__main__':
-    T = Tabuleiro(ESTADO_INICIAL)
+    T = Pacman(ESTADO_INICIAL)
     print('Olá, mundo!')
     while True:
         T.mostra_tabuleiro()

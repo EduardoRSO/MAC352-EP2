@@ -12,6 +12,11 @@ PORT = '8989'
 BUFFER_SIZE = 4096
 PROMPT = "Pac-Man> "
 CONSTANTE = 2
+JOGANDO = 'jogando'
+CONECTADO = 'online'
+NEUTRO = 'offline'
+DESAFIANDO = 'desafiando'
+
 # Identificador dos comandos nos pacotes
 HELLO = '0'
 NOVO = '1'
@@ -41,7 +46,7 @@ C_LIDERES = 'lideres'
 C_LISTA = 'l'
 C_INICIA ='inicia'
 C_DESAFIO = 'desafio'
-C_MOVE = 'move'    
+C_MOVE = 'move'
 C_ATRASO = 'atraso'
 C_ENCERRA = 'encerra'
 C_SAI = 'sai'
@@ -79,7 +84,7 @@ class Comandos():
         if resultado == True:
             self.c.usuario = dados[0]
             self.c.senha = dados[1]
-            self.c.estado = 'CONECTADO'
+            self.c.estado = CONECTADO
 
     def lideres(self, dados: list) -> None:
         print(f' Comandos().lideres: Enviei {dados}')
@@ -100,7 +105,9 @@ class Comandos():
         self.envia_mensagem(self.c.skt,self.constroi_pacote(INICIA,[self.c.usuario]))
         resultado, msg = self.recebe_mensagem(self.c.skt)
         if resultado == True:
-            self.c.estado = 'JOGANDO'
+            self.c.estado = JOGANDO
+            self.c.pacman.mostra_tabuleiro()
+            
     
     def desafio(self, dados: list) -> None:
         print(f' [+] Comandos().desafio: Enviei {dados}')
@@ -113,14 +120,35 @@ class Comandos():
             print(f' [+] Comandos().desafio: Conectando em {host}:{port}')    
             self.c.desafio_atuante = socket.socket()
             self.c.desafio_atuante.connect((host,port))
-            self.c.desafio_atuante.sendall(bytearray(HELLO.encode(encoding='utf-8')))
+            #self.c.desafio_atuante.sendall(bytearray(HELLO.encode(encoding='utf-8')))
             self.c.desafio_ouvinte.close()
+            self.c.estado = DESAFIANDO
+            self.recebe_tabuleiro(self.c.desafio_atuante)
+            self.c.pacman.mostra_tabuleiro()
+            self.c.interpretador[C_MOVE] = self.move_remoto
 
     def move(self, dados: list) -> None:
-        print(f' Comandos().move: Enviei {dados}')
-        self.envia_mensagem(self.c.skt,self.constroi_pacote(MOVE,dados))
-        resultado, msg = self.recebe_mensagem(self.c.skt)
-
+        self.c.pacman.mostra_tabuleiro()
+        self.c.pacman.movimenta_fantasmas_locais()
+        self.c.pacman.colisao_fantasma_local()
+        time.sleep(1)
+        self.c.pacman.mostra_tabuleiro()
+        if self.c.desafio_atuante != None:
+            self.envia_tabuleiro(self.c.desafio_atuante)
+            print(f'esperando')
+            resultado, direcao = self.recebe_mensagem(self.c.desafio_atuante)
+            self.c.pacman.movimenta_fantasma_remoto(direcao)
+            self.c.pacman.colisao_fantasma_remoto()
+            time.sleep(1)
+            self.c.pacman.mostra_tabuleiro()
+        self.c.pacman.movimenta_pacman(dados[0])
+        self.c.pacman.colisao_pacman()
+        time.sleep(1)
+        self.c.pacman.mostra_tabuleiro()
+    
+    def move_remoto(self, dados:list):
+        self.recebe_tabuleiro(self.c.desafio_atuante)
+        self.envia_mensagem(self.c.desafio_atuante, dados[0])
     
     def atraso(self, dados: list) -> None:
         print(f' Comandos().atraso: Enviei {dados}')
@@ -131,15 +159,17 @@ class Comandos():
         print(f' Comandos().encerra: Enviei {dados}')
         self.envia_mensagem(self.c.skt,self.constroi_pacote(ENCERRA,[self.c.usuario]))
         resultado, msg = self.recebe_mensagem(self.c.skt)
+        if self.c.estado == DESAFIANDO:
+            self.c.interpretador[C_MOVE] = self.move
         if resultado == True:
-            self.c.estado = 'CONECTADO'
+            self.c.estado = CONECTADO
     
     def sai(self, dados: list) -> None:
         print(f' Comandos().sai: Enviei {dados}')
         self.envia_mensagem(self.c.skt,self.constroi_pacote(SAI,[self.c.usuario]))
         resultado, msg = self.recebe_mensagem(self.c.skt)
         if resultado == True:
-            self.c.estado = 'NEUTRO'
+            self.c.estado = NEUTRO
     
     def tchau(self, dados: list) -> None:
         print(f' Comandos().tchau: Enviei {dados}')
@@ -147,32 +177,28 @@ class Comandos():
         resultado, msg = self.recebe_mensagem(self.c.skt)
         exit()
 
-    def envia_tabuleiro(self, dados: list):  
-        return json.dumps(self.pacman.tabuleiro)
+    def envia_tabuleiro(self, skt: socket):  
+        self.envia_mensagem(skt,json.dumps(self.c.pacman._tabuleiro))
         
-    def recebe_tabuleiro(self, tabuleiro_str):
-        self.pacman = Pacman(json.loads(tabuleiro_str))
-
-    def envia_desafio(self, dados: list):
-        print(f' Comandos().desafio: Enviei {dados}')
-        usuario, host, port = dados
-        self.envia_mensagem(dados, self.estado.desafio(dados))
+    def recebe_tabuleiro(self, skt: socket):
+        resultado, msg = self.recebe_mensagem(skt)
+        self.c.pacman = Pacman(json.loads(msg))
 
     def processa_resultado_do_jogo():
         pass
 
     def envia_mensagem(self, skt: socket, mensagem: str):
-        print(f' [+] Comandos().envia_mensagem: Enviei {mensagem}')
+        #print(f' [+] Comandos().envia_mensagem: Enviei {mensagem}')
         skt.sendall(bytearray(mensagem.encode(encoding='utf-8')))
 
     def recebe_mensagem(self, skt: socket):
         msg = skt.recv(BUFFER_SIZE).decode('utf-8')
         msg = msg.replace(HEARTBEAT,'')
         if msg == ACK:
-            print(f' [+] Comandos().recebe_mensagem: Recebi ACK')
+            #print(f' [+] Comandos().recebe_mensagem: Recebi ACK')
             return True, msg
         else:
-            print(f' [-] Comandos().recebe_mensagem: Não recebi ACK')
+            #print(f' [-] Comandos().recebe_mensagem: Não recebi ACK')
             return False, msg
         
     def heartbeat(self):
@@ -204,7 +230,7 @@ class Cliente():
     desafio_atuante = None
     def __init__(self) -> None:
         self.comandos = Comandos(self)
-        self.estado = 'NEUTRO'
+        self.estado = NEUTRO
         self.usuario = 'u'
         self.senha = 's'
         self.pontuacao = 0
@@ -226,14 +252,15 @@ class Cliente():
             C_TCHAU: self.comandos.tchau,
         }
         self.comandos_do_estado = {
-            'NEUTRO': [C_NOVO, C_ENTRA, C_TCHAU],
-            'CONECTADO': [C_SENHA, C_LIDERES, C_LISTA, C_INICIA, C_DESAFIO, C_SAI],
-            'JOGANDO': [C_MOVE, C_ATRASO, C_ENCERRA]
+            NEUTRO: [C_NOVO, C_ENTRA, C_TCHAU],
+            CONECTADO: [C_SENHA, C_LIDERES, C_LISTA, C_INICIA, C_DESAFIO, C_SAI],
+            JOGANDO: [C_MOVE, C_ATRASO, C_ENCERRA],
+            DESAFIANDO : [C_ATRASO, C_ENCERRA]
         }
 
     def processa_cliente(self):
         while True:
-            self.comandos.verifica_pacotes_desafiante()
+            #self.comandos.verifica_pacotes_desafiante()
             comando = input(PROMPT)
             if self.comando_valido(comando):
                 acao = comando.split()[0]
@@ -252,7 +279,8 @@ class Cliente():
         while True:
             conn, addr = self.desafio_ouvinte.accept()
             if conn:
-                self.desafio_atuante = conn 
+                self.desafio_atuante = conn
+                self.comandos.envia_tabuleiro(conn)
             if self.desafio_atuante != None:
                 self.desafio_ouvinte.close()
                 break
