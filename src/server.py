@@ -7,12 +7,14 @@ from abc import ABC, abstractmethod
 import sys
 import socket
 import select
+import time
+import random
 
 # CONSTANTES
 
 HOST = '127.0.0.1'
 PORT = 6969
-HEARTBEAT_TIMEOUT = 80085
+TIMEOUT = 20
 SSL_TIMEOUT = 455
 BUFFER_SIZE = 4096
 OFFLINE = 'offline'
@@ -36,6 +38,8 @@ ENCERRA  ='C'
 TCHAU = 'D'
 TABULEIRO = 'E'
 ACK = 'F'
+HEARTBEAT = 'G'
+END='|'
 
 class Logs:
 
@@ -116,7 +120,7 @@ class Usuarios:
         conteudo = []
         with self.lock:
             with open(self.nome, 'r') as arquivo:
-                conteudo = arquivo.readlines()
+                conteudo = [linha.split(' ') for linha in arquivo.readlines()]
         return conteudo
 
 
@@ -136,9 +140,9 @@ class Usuarios:
             if usuario not in [linha.split()[0] for linha in conteudo]:
                 with open(self.nome, 'a') as arquivo:
                     arquivo.write(self._formatacao_dos_dados(usuario, senha, OFFLINE, PONTOS, host, port))
-                    print(f' [+] Usuarios().cria_novo_usuario: Usuario {usuario} criado')
+                    #print(f' [+] Usuarios().cria_novo_usuario: Usuario {usuario} criado')
                     return True
-            print(f' [-] Usuarios().cria_novo_usuario: Usuario {usuario} não foi criado')
+            #print(f' [-] Usuarios().cria_novo_usuario: Usuario {usuario} não foi criado')
             return False
 
 
@@ -160,9 +164,9 @@ class Usuarios:
                     conteudo[i] = self._formatacao_dos_dados(username, password, status, pontos, host_novo, port_novo)
                     with open(self.nome, 'w') as arquivo:
                         arquivo.writelines(conteudo)          
-                    print(f' [+] Usuarios().altera_senha_usuario: Senha {senha_antiga} trocada')
+                    #print(f' [+] Usuarios().altera_senha_usuario: Senha {senha_antiga} trocada')
                     return True
-            print(f' [-] Usuarios().altera_senha_usuario: Senha {senha_antiga} não foi trocada')
+            #print(f' [-] Usuarios().altera_senha_usuario: Senha {senha_antiga} não foi trocada')
             return False
 
     def atualiza_status(self, dados: list, skt: socket) -> None:
@@ -183,9 +187,9 @@ class Usuarios:
                     conteudo[i] = self._formatacao_dos_dados(username, password, status, pontos, host_novo, port_novo)
                     with open(self.nome, 'w') as arquivo:
                         arquivo.writelines(conteudo)
-                    print(f' [+] Usuarios().atualiza_status: Status {status_antigo} trocado')
+                    #print(f' [+] Usuarios().atualiza_status: Status {status_antigo} trocado')
                     return True
-            print(f' [-] Usuarios().atualiza_status: Status {status_antigo} não foi trocado')
+            #print(f' [-] Usuarios().atualiza_status: Status {status_antigo} não foi trocado')
             return False           
 
     def lista_pontuacao(self) -> None:
@@ -200,7 +204,7 @@ class Usuarios:
             dados = sorted(dados, key = lambda x:x[1], reverse= True)
             for linha in dados:
                 print(linha)
-            print(f' [+] Usuarios().lista_pontuacao: Lista gerada')
+            #print(f' [+] Usuarios().lista_pontuacao: Lista gerada')
 
     def lista_nao_offline(self) -> None:
         with self.lock:
@@ -210,7 +214,7 @@ class Usuarios:
                 for linha in conteudo:
                     if linha.split()[2] != 'offline':
                         conectados += linha
-            print(f' [+] Usuarios().lista_nao_offline: Lista gerada')
+            #print(f' [+] Usuarios().lista_nao_offline: Lista gerada')
             return conectados
 
 class Servidor(ABC):
@@ -219,6 +223,7 @@ class Servidor(ABC):
             self.logs = logs
             self.host = host
             self.port = port
+            self.sockets_conenctados = {}
             self.interpretador = {
             HELLO: self.hello,
             NOVO: self.novo,
@@ -239,6 +244,8 @@ class Servidor(ABC):
     def _extrai_dados(self, pacote:str):
         dados = []
         inicio = 2
+        if len(pacote) == 1:
+            return pacote
         tamanho = int(pacote[1])
         while inicio < len(pacote):
             if tamanho != '0':
@@ -249,90 +256,120 @@ class Servidor(ABC):
 
     def ack(self, dados: list):
         print(f' [+] Servidor().ack: Recebi {dados[0]}')
-        self._envia(dados[-1], ACK)
+        self.envia(dados[-1], ACK)
 
     def tchau(self, dados: list):
         print(f' [+] Servidor().tchau: Recebi {dados[0]}')
-        self._envia(dados[-1], ACK)
+        self.envia(dados[-1], ACK)
 
     def encerra(self, dados: list):
         print(f' [+] Servidor().encerra: Recebi {dados[0]}')
         if True == self.usuarios.atualiza_status([self._extrai_dados(dados[0])[0], JOGANDO, ONLINE], dados[-1]):
-            self._envia(dados[-1], ACK)
+            self.envia(dados[-1], ACK)
         else:
-            print('erro')
-            #self._envia(dados[-1], NACK)
-
+            self.envia(dados[-1], ACK)
+            #self.envia(dados[-1], NACK)
 
     def atraso(self, dados: list):
         print(f' [+] Servidor().atraso: Recebi {dados[0]}')
-        self._envia(dados[-1], ACK)
+        self.envia(dados[-1], ACK)
 
     def sai(self, dados: list):
         print(f' [+] Servidor().sai: Recebi {dados[0]}')
         if True == self.usuarios.atualiza_status([self._extrai_dados(dados[0])[0], ONLINE, OFFLINE], dados[-1]):
-            self._envia(dados[-1], ACK)
+            self.envia(dados[-1], ACK)
         else:
-            print('erro')
-            #self._envia(dados[-1], NACK)
+            self.envia(dados[-1], ACK)
 
     def todos(self, dados: list):
         print(f' [+] Servidor().todos: Recebi {dados[0]}')
-        self._envia(dados[-1], ACK)
+        self.envia(dados[-1], ACK)
 
     def desafio(self, dados: list):
-        print(f' [+] Servidor().desafio: Recebi {dados[0]}')
         #tem que verificar se o usuario está jogando e caso esteja e não haja outro desafiando ele, enviar o host port dele para que seja feita a conecao ptp
-        self._envia(dados[-1], ACK)
+        usuario = self._extrai_dados(dados[0])[0]
+        print(f' [+] Servidor().desafio: Recebi {usuario}')
+        conectados = self.usuarios.serializa()
+        msg = ACK
+        for conectado in conectados:
+            print(conectado[0] , usuario)
+            if conectado[0] == usuario: #and conectado[2] == JOGANDO:
+                host = conectado[4]
+                port = conectado[5]
+                msg = f'{host} {port}'
+        print(f' [+] Servidor().desafio: Enviei {msg}')
+        self.envia(dados[-1], msg)
+        
 
     def inicia(self, dados: list):
         print(f' [+] Servidor().inicia: Recebi {dados[0]}')
         if True == self.usuarios.atualiza_status([self._extrai_dados(dados[0])[0], ONLINE, JOGANDO], dados[-1]):
-            self._envia(dados[-1], ACK)
+            self.envia(dados[-1], ACK)
         else:
-            print('erro')
-            #self._envia(dados[-1], NACK)
+            self.envia(dados[-1], ACK)
+            #self.envia(dados[-1], NACK)
 
     def conectados(self, dados: list):
         print(f' [+] Servidor().conectados: Recebi {dados[0]}')
         conectados = self.usuarios.lista_nao_offline()
-        #self._envia(dados[-1], ACK)
-        self._envia(dados[-1], conectados)
+        #self.envia(dados[-1], ACK)
+        self.envia(dados[-1], conectados)
 
     def lideres(self, dados: list):
         print(f' [+] Servidor().lideres: Recebi {dados[0]}')
         self.usuarios.lista_pontuacao()
-        self._envia(dados[-1], ACK)
+        self.envia(dados[-1], ACK)
 
     def entra(self, dados: list):
         print(f' [+] Servidor().entra: Recebi {dados[0]}')
         if True == self.usuarios.atualiza_status([self._extrai_dados(dados[0])[0], OFFLINE, ONLINE], dados[-1]):
-            self._envia(dados[-1], ACK)
+            self.envia(dados[-1], ACK)
         else:
-            print('erro')
-            #self._envia(dados[-1], NACK)
+            self.envia(dados[-1], ACK)
+            #self.envia(dados[-1], NACK)
 
     def senha(self, dados: list):
         print(f' [+] Servidor().senha: Recebi {dados[0]}')
         if True == self.usuarios.altera_senha_do_usuario(self._extrai_dados(dados[0]), dados[-1]):
-            self._envia(dados[-1], ACK)
+            self.envia(dados[-1], ACK)
         else:
-            print('erro')
-            #self._envia(dados[-1], NACK)
+            self.envia(dados[-1], ACK)
+            #self.envia(dados[-1], NACK)
 
     def novo(self, dados: list):
         print(f' [+] Servidor().novo: Recebi {dados[0]}')
         if True == self.usuarios.cria_novo_usuario(self._extrai_dados(dados[0]), dados[-1]):
-            self._envia(dados[-1], ACK)
+            self.envia(dados[-1], ACK)
         else:
-            print('erro')
-            #self._envia(dados[-1], NACK)
+            self.envia(dados[-1], ACK)
+            #self.envia(dados[-1], NACK)
 
     def hello(self, dados: list):
         print(' [+] Servidor().hello: Recebi HELLO')
-        self._envia(dados[-1],HELLO)
+        self.envia(dados[-1],HELLO)
 
-    def _envia(self, skt: socket, msg: str):
+    def heartbeat(self):
+        time.sleep(1)
+        print(f' [+] Servidor().heartbeat')
+        for key in self.sockets_conenctados:
+            try:
+                #self.envia(key, HEARTBEAT)
+                self.conectados[key].append(time.time())
+            except:
+                pass
+            #self.sockets_conenctados[key].append()
+
+    def recebe_mensagem(self, skt: socket):
+        msg = skt.recv(BUFFER_SIZE).decode('utf-8')
+        if msg == ACK:
+            print(f' [+] Comandos().recebe_mensagem: Recebi ACK')
+            return True, msg
+        else:
+            print(f' [-] Comandos().recebe_mensagem: Não recebi ACK')
+            return False, msg
+
+    def envia(self, skt: socket, msg: str):
+        print(f' [+] Servidor().envia: {bytearray(msg.encode(encoding="utf-8"))}')
         skt.sendall(bytearray(msg.encode(encoding='utf-8')))
 
     def interpreta_pacote(self, dados:list):
@@ -344,13 +381,14 @@ class ServidorTCP(Servidor):
         self.skt = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
         self.skt.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1) #?
         self.skt.bind((self.host,self.port))
+        self.host, self.port = self.skt.getsockname()
         self.threads = []
         print(f' [+]Servidor TCP iniciado em {self.host}:{port}') 
 
     def cria_listener(self):
         self.skt.listen()
         while True:
-            print(f' [+] ServidorTCP().cria_listener: esperando conexão')
+            #print(f' [+] ServidorTCP().cria_listener: esperando conexão')
             conn, addr = self.skt.accept()
             print(f' [+] ServidorTCP().cria_listener: conexão em {addr}')
             nova_thread = Thread(target=self.faz_leitura, args=(conn,addr))
@@ -359,17 +397,18 @@ class ServidorTCP(Servidor):
 
     def faz_leitura(self, conn, addr) -> None:
         with conn:
-            print(f' [+] ServidorTCP().faz_leitura:  {addr}')
+            #print(f' [+] ServidorTCP().faz_leitura:  {addr}')
+
             while True:
                 buffer = conn.recv(BUFFER_SIZE)
-                print(f' [+] ServidorTCP().faz_leitura: Recebi {buffer}')
+                #print(f' [+] ServidorTCP().faz_leitura: Recebi {buffer}')
                 if not buffer:
                     break
                 self.interpreta_pacote([buffer.decode('utf-8'), conn])
-
-    def faz_escrita(self, dados: List) -> None:
-        buffer, conn = dados
-        conn.sendall(buffer)            
+                if self.sockets_conenctados.get(conn) == None:
+                    self.sockets_conenctados[conn] = []
+                else:
+                    self.heartbeat()       
 
 class ServidorUDP(Servidor):
     def __init__(self, usuarios: Usuarios, logs: Logs, host:str, port:int):
@@ -400,7 +439,7 @@ class Auxiliares:
     def __init__(self):
         pass
 
-    def auxiliares_envia_mensagem_para_socket(self, dados: List):
+    def auxiliaresenvia_mensagem_para_socket(self, dados: List):
         pass
 
     def auxiliares_invoca_threads(self, servidor: Servidor) -> None:
