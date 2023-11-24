@@ -39,7 +39,9 @@ TCHAU = 'D'
 TABULEIRO = 'E'
 ACK = 'F'
 HEARTBEAT = 'G'
+NACK = 'H'
 END='|'
+
 
 class Logs:
 
@@ -55,7 +57,7 @@ class Logs:
             print(f'    [-]Arquivo de logs não encontrado')
         self.logs.close()
 
-    def logs_insere_nova_mensagem(self, mensagem: str):
+    def insere_nova_mensagem(self, mensagem: str):
         with self.lock:
             arquivo = open(self.nome, 'a')
             arquivo.write(mensagem)
@@ -66,39 +68,66 @@ class Logs:
 class Mensagens(ABC):
 
     #como verificar se a ultima execucao foi finalizada com sucesso? criar um arquivo 
-    def mensagens_servidor_iniciado(self, tipo_servidor, host_servidor, porta_servidor):
+    def servidor_iniciado(tipo_servidor, host_servidor, porta_servidor):
         return f'Servidor {tipo_servidor} iniciado em {host_servidor}:{porta_servidor}\n'
 
-    def mensagens_conexao_realizada(self, host_cliente, porta_cliente):
-        return f'Conexao realizada com cliente em {host_cliente}:{porta_cliente}\n'
+    def usuario_desconectado(dados):
+        return f'Usuario {dados[0]} desconectou\n'
+    
+    def partida_encerrada(dados):
+        return f'Usuário {dados[0]} encerrou a partida\n'
+    
+    def atraso_solicitado(dados):
+        return f'Usuário {dados[0]} solicitou atraso de {dados[1]}\n'
 
-    def mensagens_login_sucesso(self, nome_usuario, host_cliente, porta_cliente):
-        return f'Cliente {nome_usuario} em {host_cliente}:{porta_cliente} se conectou com sucesso\n'
+    def usuario_saiu(dados):
+        return f'Usuário {dados[0]} saiu\n'
+    
+    def desafio_solicitado(dados):
+        return f'Usuário {dados[0]} foi desafiado\n'
 
-    def mensagens_login_falha(self, nome_usuario, host_cliente, porta_cliente):
-        return f'Cliente {nome_usuario} em {host_cliente}: {porta_cliente} falhou em se conectar\n'
+    def lista_solicitada(dados):
+        return f'usuaŕio {dados[0]} solicitou a lista\n'
 
-    def mensagens_inicio_de_partida(self, nome_usuario, host_cliente, porta_cliente):
-        return f'Cliente {nome_usuario} conectado em {host_cliente}:{porta_cliente} iniciou uma partida\n'
+    def lideres_solicitada(dados):
+        return f'usuaŕio {dados[0]} solicitou lideres\n'
 
-    def mensagens_fantasma_entrou(self, nome_usuario, host_cliente_1, porta_cliente_1, host_cliente_2, porta_cliente_2):
+    def conexao_realizada(dados):
+        return f'Conexao realizada com cliente em {dados[1]}\n'
+
+    def login_sucesso(dados):
+        return f'Cliente {dados[0]} em {dados[1]} se conectou com sucesso\n'
+
+    def login_falha(dados):
+        return f'Cliente {dados[0]} em {dados[1]} falhou em se conectar\n'
+
+    def inicio_de_partida(dados):
+        return f'Usuário {dados[0]} iniciou uma partida\n'
+    
+    def senha_solicitada(dados):
+        return f'Usuário {dados[0]} solicitou a troca da senha\n'
+    
+    def novo_solicitado(dados):
+        return f'Usuário {dados[0]} criado\n'
+
+    def fantasma_entrou(nome_usuario, host_cliente_1, porta_cliente_1, host_cliente_2, porta_cliente_2):
         return f'Cliente {nome_usuario} conectado em {host_cliente_2}:{porta_cliente_2} entrou na partida do cliente conectado em {host_cliente_1}:{porta_cliente_1}\n'
 
-    def mensagens_fantasma_saiu(self, nome_usuario, host_cliente_1, porta_cliente_1, host_cliente_2, porta_cliente_2):
+    def fantasma_saiu(nome_usuario, host_cliente_1, porta_cliente_1, host_cliente_2, porta_cliente_2):
         return f'Cliente {nome_usuario} conectado em {host_cliente_2}:{porta_cliente_2} saiu da partida do cliente conectado em {host_cliente_1}:{porta_cliente_1}\n'
 
 
-    def mensagens_finalizacao_partida(self, nome_usuario_1, host_cliente_1, porta_cliente_1, nome_usuario_2, host_cliente_2, porta_cliente_2, vencedor):
+    def finalizacao_partida(nome_usuario_1, host_cliente_1, porta_cliente_1, nome_usuario_2, host_cliente_2, porta_cliente_2, vencedor):
         if nome_usuario_2 == None:
             return f'Cliente {nome_usuario_1} conectado em {host_cliente_1}:{porta_cliente_1} finalizou a partida. O vencedor foi {vencedor}\n'
         else:
             return f'Cliente {nome_usuario_1} conectado em {host_cliente_1}:{porta_cliente_1} e Cliente {nome_usuario_2} conectado em {host_cliente_2}:{porta_cliente_2} finalizaram a partida. O vencedor foi {vencedor}\n'
          
 
-    def mensagens_desconexao_inesperada_cliente(self, host_cliente, porta_cliente):
+    def desconexao_inesperada_cliente(host_cliente, porta_cliente):
         return f'Cliente conectado em {host_cliente}:{porta_cliente} se desconectou inesperadamente\n'
 
-    def mensagens_servidor_finalizado(self, tipo_servidor, host_servidor, porta_servidor):
+    def servidor_finalizado(tipo_servidor, host_servidor, porta_servidor):
         return f'Servidor {tipo_servidor} finalizado em {host_servidor}:{porta_servidor}\n'
 
 #createlist?
@@ -223,7 +252,7 @@ class Servidor(ABC):
             self.logs = logs
             self.host = host
             self.port = port
-            self.sockets_conenctados = {}
+            #self.sockets_conenctados = {}
             self.interpretador = {
             HELLO: self.hello,
             NOVO: self.novo,
@@ -231,14 +260,14 @@ class Servidor(ABC):
             ENTRA: self.entra,
             LIDERES: self.lideres,
             LISTA_CONECTADOS: self.conectados,
-            LISTA_TODOS: self.todos,
+            #LISTA_TODOS: self.todos,
             INICIA: self.inicia,
             DESAFIO: self.desafio,
             SAI: self.sai,
             ATRASO: self.atraso,
             ENCERRA: self.encerra,
             TCHAU: self.tchau,
-            ACK: self.ack
+            #ACK: self.ack
         }
 
     def _extrai_dados(self, pacote:str):
@@ -254,41 +283,47 @@ class Servidor(ABC):
             tamanho = int(pacote[inicio-1]) if len(pacote) > inicio-1 else None
         return dados
 
-    def ack(self, dados: list):
-        print(f' [+] Servidor().ack: Recebi {dados[0]}')
-        self.envia(dados[-1], ACK)
+    #def ack(self, dados: list):
+    #    self.logs.insere_nova_mensagem(Mensagens.)
+    #    print(f' [+] Servidor().ack: Recebi {dados[0]}')
+    #    self.envia(dados[-1], ACK)
 
     def tchau(self, dados: list):
-        print(f' [+] Servidor().tchau: Recebi {dados[0]}')
+        self.logs.insere_nova_mensagem(Mensagens.usuario_desconectado(dados))
+        #print(f' [+] Servidor().tchau: Recebi {dados[0]}')
         self.envia(dados[-1], ACK)
 
     def encerra(self, dados: list):
-        print(f' [+] Servidor().encerra: Recebi {dados[0]}')
+        self.logs.insere_nova_mensagem(Mensagens.partida_encerrada(dados))
+        #print(f' [+] Servidor().encerra: Recebi {dados[0]}')
         if True == self.usuarios.atualiza_status([self._extrai_dados(dados[0])[0], JOGANDO, ONLINE], dados[-1]):
             self.envia(dados[-1], ACK)
         else:
-            self.envia(dados[-1], ACK)
-            #self.envia(dados[-1], NACK)
+            #self.envia(dados[-1], ACK)
+            self.envia(dados[-1], NACK)
 
     def atraso(self, dados: list):
-        print(f' [+] Servidor().atraso: Recebi {dados[0]}')
+        self.logs.insere_nova_mensagem(Mensagens.atraso_solicitado(dados))
+        #print(f' [+] Servidor().atraso: Recebi {dados[0]}')
         self.envia(dados[-1], ACK)
 
     def sai(self, dados: list):
-        print(f' [+] Servidor().sai: Recebi {dados[0]}')
+        self.logs.insere_nova_mensagem(Mensagens.usuario_saiu(dados))
+        #print(f' [+] Servidor().sai: Recebi {dados[0]}')
         if True == self.usuarios.atualiza_status([self._extrai_dados(dados[0])[0], ONLINE, OFFLINE], dados[-1]):
             self.envia(dados[-1], ACK)
         else:
-            self.envia(dados[-1], ACK)
+            self.envia(dados[-1], NACK)
 
-    def todos(self, dados: list):
-        print(f' [+] Servidor().todos: Recebi {dados[0]}')
-        self.envia(dados[-1], ACK)
+    #def todos(self, dados: list):
+    #    print(f' [+] Servidor().todos: Recebi {dados[0]}')
+    #    self.envia(dados[-1], ACK)
 
     def desafio(self, dados: list):
         #tem que verificar se o usuario está jogando e caso esteja e não haja outro desafiando ele, enviar o host port dele para que seja feita a conecao ptp
+        self.logs.insere_nova_mensagem(Mensagens.desafio_solicitado([dados]))
         usuario = self._extrai_dados(dados[0])[0]
-        print(f' [+] Servidor().desafio: Recebi {usuario}')
+        #print(f' [+] Servidor().desafio: Recebi {usuario}')
         conectados = self.usuarios.serializa()
         msg = ACK
         for conectado in conectados:
@@ -297,66 +332,74 @@ class Servidor(ABC):
                 host = conectado[4]
                 port = conectado[5]
                 msg = f'{host} {port}'
-        print(f' [+] Servidor().desafio: Enviei {msg}')
+        #print(f' [+] Servidor().desafio: Enviei {msg}')
         self.envia(dados[-1], msg)
         
 
     def inicia(self, dados: list):
-        print(f' [+] Servidor().inicia: Recebi {dados[0]}')
+        #print(f' [+] Servidor().inicia: Recebi {dados[0]}')
+        self.logs.insere_nova_mensagem(Mensagens.inicio_de_partida(dados))
         if True == self.usuarios.atualiza_status([self._extrai_dados(dados[0])[0], ONLINE, JOGANDO], dados[-1]):
             self.envia(dados[-1], ACK)
         else:
-            self.envia(dados[-1], ACK)
-            #self.envia(dados[-1], NACK)
+            #self.envia(dados[-1], ACK)
+            self.envia(dados[-1], NACK)
 
     def conectados(self, dados: list):
-        print(f' [+] Servidor().conectados: Recebi {dados[0]}')
+        #print(f' [+] Servidor().conectados: Recebi {dados[0]}')
+        self.logs.insere_nova_mensagem(Mensagens.lista_solicitada(dados))
         conectados = self.usuarios.lista_nao_offline()
         #self.envia(dados[-1], ACK)
         self.envia(dados[-1], conectados)
 
     def lideres(self, dados: list):
-        print(f' [+] Servidor().lideres: Recebi {dados[0]}')
+        #print(f' [+] Servidor().lideres: Recebi {dados[0]}')
+        self.logs.insere_nova_mensagem(Mensagens.lideres_solicitaa(dados))
         self.usuarios.lista_pontuacao()
         self.envia(dados[-1], ACK)
 
     def entra(self, dados: list):
-        print(f' [+] Servidor().entra: Recebi {dados[0]}')
+        #print(f' [+] Servidor().entra: Recebi {dados[0]}')
         if True == self.usuarios.atualiza_status([self._extrai_dados(dados[0])[0], OFFLINE, ONLINE], dados[-1]):
             self.envia(dados[-1], ACK)
+            self.logs.insere_nova_mensagem(Mensagens.login_sucesso(dados))
         else:
-            self.envia(dados[-1], ACK)
-            #self.envia(dados[-1], NACK)
+            self.envia(dados[-1], NACK)
+            self.logs.insere_nova_mensagem(Mensagens.login_falha(dados))
+            #self.envia(dados[-1], ACK)
 
     def senha(self, dados: list):
-        print(f' [+] Servidor().senha: Recebi {dados[0]}')
+        #print(f' [+] Servidor().senha: Recebi {dados[0]}')
+        self.logs.insere_nova_mensagem(Mensagens.senha_solicitada(dados))
         if True == self.usuarios.altera_senha_do_usuario(self._extrai_dados(dados[0]), dados[-1]):
             self.envia(dados[-1], ACK)
         else:
-            self.envia(dados[-1], ACK)
-            #self.envia(dados[-1], NACK)
+            #self.envia(dados[-1], ACK)
+            self.envia(dados[-1], NACK)
 
     def novo(self, dados: list):
-        print(f' [+] Servidor().novo: Recebi {dados[0]}')
+        #print(f' [+] Servidor().novo: Recebi {dados[0]}')
+        self.logs.insere_nova_mensagem(Mensagens.novo_solicitado(dados))
         if True == self.usuarios.cria_novo_usuario(self._extrai_dados(dados[0]), dados[-1]):
             self.envia(dados[-1], ACK)
         else:
-            self.envia(dados[-1], ACK)
-            #self.envia(dados[-1], NACK)
+            #self.envia(dados[-1], ACK)
+            self.envia(dados[-1], NACK)
 
     def hello(self, dados: list):
-        print(' [+] Servidor().hello: Recebi HELLO')
+        self.logs.insere_nova_mensagem(Mensagens.conexao_realizada(dados))
+        #print(' [+] Servidor().hello: Recebi HELLO')
         self.envia(dados[-1],HELLO)
 
-    def heartbeat(self):
-        time.sleep(1)
-        print(f' [+] Servidor().heartbeat')
-        for key in self.sockets_conenctados:
-            try:
-                #self.envia(key, HEARTBEAT)
-                self.conectados[key].append(time.time())
-            except:
-                pass
+    #def heartbeat(self):
+    #    time.sleep(1)
+    #    print(f' [+] Servidor().heartbeat')
+    #    for key in self.sockets_conenctados:
+    #        try:
+    #            #self.envia(key, HEARTBEAT)
+    #            self.conectados[key].append(time.time())
+    #        except:
+    #            pass
             #self.sockets_conenctados[key].append()
 
     def recebe_mensagem(self, skt: socket):
@@ -383,7 +426,8 @@ class ServidorTCP(Servidor):
         self.skt.bind((self.host,self.port))
         self.host, self.port = self.skt.getsockname()
         self.threads = []
-        print(f' [+]Servidor TCP iniciado em {self.host}:{port}') 
+        self.logs.insere_nova_mensagem(Mensagens.servidor_iniciado('TCP', host, port))
+        #print(f' [+]Servidor TCP iniciado em {self.host}:{port}') 
 
     def cria_listener(self):
         self.skt.listen()
@@ -405,10 +449,10 @@ class ServidorTCP(Servidor):
                 if not buffer:
                     break
                 self.interpreta_pacote([buffer.decode('utf-8'), conn])
-                if self.sockets_conenctados.get(conn) == None:
-                    self.sockets_conenctados[conn] = []
-                else:
-                    self.heartbeat()       
+                #if self.sockets_conenctados.get(conn) == None:
+                #    self.sockets_conenctados[conn] = []
+                #else:
+                #    self.heartbeat()       
 
 class ServidorUDP(Servidor):
     def __init__(self, usuarios: Usuarios, logs: Logs, host:str, port:int):
@@ -418,7 +462,8 @@ class ServidorUDP(Servidor):
         self.port = port
         self.skt = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.skt.bind(((self.host,self.port)))
-        print(f'    [+]Servidor UDP iniciado em {self.host}:{port}') 
+        self.logs.insere_nova_mensagem(Mensagens.servidor_iniciado('UDP', host,port))
+        #print(f'    [+]Servidor UDP iniciado em {self.host}:{port}') 
 
     def cria_listener(self):
             while True:
@@ -426,7 +471,7 @@ class ServidorUDP(Servidor):
     
     def faz_leitura(self) -> None:
         buffer, addr = self.skt.recvfrom(BUFFER_SIZE)
-        print(f'    [+]Cliente UDP conectado em {addr}')
+        #print(f'    [+]Cliente UDP conectado em {addr}')
         self.interpreta_pacote([buffer, addr])    
 
     def faz_escrita(self, dados: List) -> None:
