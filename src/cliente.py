@@ -35,6 +35,7 @@ TCHAU = 'D'
 TABULEIRO = 'E'
 ACK = 'F'
 HEARTBEAT = 'G'
+NACK ='H'
 END='|'
 
 # Identificador dos comandos recebidos via input
@@ -74,7 +75,7 @@ class Comandos():
 
     def senha(self, dados: list) -> None:
         print(f' Comandos().senha: Enviei {dados}')
-        self.envia_mensagem(self.c.skt,self.constroi_pacote(SENHA,dados))
+        self.envia_mensagem(self.c.skt,self.constroi_pacote(SENHA, [self.c.usuario]+dados))
         resultado, msg = self.recebe_mensagem(self.c.skt)
     
     def entra(self, dados: list) -> None:
@@ -123,9 +124,28 @@ class Comandos():
             #self.c.desafio_atuante.sendall(bytearray(HELLO.encode(encoding='utf-8')))
             self.c.desafio_ouvinte.close()
             self.c.estado = DESAFIANDO
+            #self.c.interpretador[C_MOVE] = self.move_remoto
             self.recebe_tabuleiro(self.c.desafio_atuante)
+            self.processa_desafio()
+            
+    
+    def processa_desafio(self):
+        msg = ''
+        while msg != 'encerra':
+            anterior = self.c.pacman._tabuleiro 
+            while anterior == self.c.pacman._tabuleiro:
+                self.recebe_tabuleiro(self.c.desafio_atuante)
             self.c.pacman.mostra_tabuleiro()
-            self.c.interpretador[C_MOVE] = self.move_remoto
+            msg = input(f'{PROMPT}').split(' ')
+            if msg == ['encerra']:
+                self.move_remoto([NACK])
+                self.c.desafio_atuante.close()
+                self.c.desafio_atuante = None
+                break
+            else:
+                self.move_remoto(msg)
+        self.c.processa_cliente()
+            
 
     def move(self, dados: list) -> None:
         self.c.pacman.mostra_tabuleiro()
@@ -135,10 +155,15 @@ class Comandos():
         self.c.pacman.mostra_tabuleiro()
         if self.c.desafio_atuante != None:
             self.envia_tabuleiro(self.c.desafio_atuante)
-            print(f'esperando')
+            #print(f'esperando {self.c.desafio_atuante}')
             resultado, direcao = self.recebe_mensagem(self.c.desafio_atuante)
-            self.c.pacman.movimenta_fantasma_remoto(direcao)
-            self.c.pacman.colisao_fantasma_remoto()
+            #print(f'recebi {direcao}')
+            if direcao != NACK:
+                self.c.pacman.movimenta_fantasma_remoto(direcao)
+                self.c.pacman.colisao_fantasma_remoto()
+            else:
+                self.c.desafio_atuante.close()
+                self.c.desafio_atuante = None
             time.sleep(1)
             self.c.pacman.mostra_tabuleiro()
         self.c.pacman.movimenta_pacman(dados[0])
@@ -147,8 +172,9 @@ class Comandos():
         self.c.pacman.mostra_tabuleiro()
     
     def move_remoto(self, dados:list):
-        self.recebe_tabuleiro(self.c.desafio_atuante)
-        self.envia_mensagem(self.c.desafio_atuante, dados[0])
+        print(f'Enviei {dados}')
+        #self.recebe_tabuleiro(self.c.desafio_atuante)
+        self.envia_mensagem(self.c.desafio_atuante, dados[-1])
     
     def atraso(self, dados: list) -> None:
         print(f' Comandos().atraso: Enviei {dados}')
@@ -173,7 +199,7 @@ class Comandos():
     
     def tchau(self, dados: list) -> None:
         print(f' Comandos().tchau: Enviei {dados}')
-        self.envia_mensagem(self.c.skt,self.constroi_pacote(TCHAU,dados))
+        self.envia_mensagem(self.c.skt,self.constroi_pacote(TCHAU,[self.c.usuario]))
         resultado, msg = self.recebe_mensagem(self.c.skt)
         exit()
 
@@ -201,19 +227,19 @@ class Comandos():
             #print(f' [-] Comandos().recebe_mensagem: Não recebi ACK')
             return False, msg
         
-    def heartbeat(self):
-        self.envia_mensagem(self.c.skt,ACK)
+    #def heartbeat(self):
+    #    self.envia_mensagem(self.c.skt,ACK)
         
-    def verifica_pacotes_servidor_recebidos(self):
-        #setblocking permite que seja feito a leitura do buffer do socket sem que haja a interrupção do fluxo do programa até que haja algo para ser lido
-        self.c.skt.setblocking(0)
-        try:
-            resultado, msg = self.recebe_mensagem(self.c.skt)
-            print(f' [+] Comandos().verifica_pacotes_recebidos: {resultado}, {msg}')
-            self.heartbeat()
-        except BlockingIOError:
-            print(f' [+] Comandos().verifica_pacotes_recebidos: Nada recebido')
-        self.c.skt.setblocking(1)
+    #def verifica_pacotes_servidor_recebidos(self):
+    #    #setblocking permite que seja feito a leitura do buffer do socket sem que haja a interrupção do fluxo do programa até que haja algo para ser lido
+    #    self.c.skt.setblocking(0)
+    #    try:
+    #        resultado, msg = self.recebe_mensagem(self.c.skt)
+    #        print(f' [+] Comandos().verifica_pacotes_recebidos: {resultado}, {msg}')
+    #        self.heartbeat()
+    #    except BlockingIOError:
+    #        print(f' [+] Comandos().verifica_pacotes_recebidos: Nada recebido')
+    #    self.c.skt.setblocking(1)
         
     def verifica_pacotes_desafiante(self):
         if self.c.desafio_atuante != None:
