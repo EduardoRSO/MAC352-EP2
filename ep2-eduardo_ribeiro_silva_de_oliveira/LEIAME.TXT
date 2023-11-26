@@ -1,0 +1,69 @@
+O link para a visualização da demonstração é esse: https://youtu.be/IIzAIBrGypc 
+
+SOBRE O EP
+Foi feita a implementação de um servidor capaz de armazenar usuários e registrar os principais eventos, de
+modo que fosse possível que houvesse interação com clientes. Estes clientes, por sua vez, têm como principal
+comportamento iniciar uma partida de pacman(ou invadir partidas em andamento). Para isso, o servidor é capaz
+de suportar conexões TCP e UDP e as invasões de partidas são feitas pelo P2P entre dois clientes.
+
+SOBRE O PACMAN
+Descrição dos símbolos:
+    * é a parede
+    . é o pacdot
+    F é o fantasma local
+    f é o fantasma remoto
+    H é a sobreposição de dois ou mais fantasmas
+    C é o pacman
+OBS1: espaços em branco ou '.' são os caminhos no qual o pacman consegue caminhar.
+OBS2: a arena é cíclica.
+A ordem das ações é dada por:
+    1) fantasma local
+    2) fantasma remoto
+    3) pacman
+de tal modo que entre cada ação há a verificação de colisão com o pacman e há 1s de espera entre cada comando.
+
+SOBRE A IMPLEMENTAÇÃO DOS COMANDOS
+A invocação dos comandos pelo cliente foi implementada da mesma forma sugerida pelo professor. Por exemplo:
+
+    senha <senha antiga> <senha nova>
+
+SOBRE OS REQUISITOS DA ENTREGA
+Abaixo irei listar tudo que consegui(ou não) implementar:
+
+    #COMPORTAMENTOS
+    #NO verificação periódica iniciada pelo servidor, de que os clientes continuam conectados.
+    #NO verificação periódica entre clientes, da latencia entre eles durante uma partida;
+    #OK envio das credenciais de usuario e senha em texto plano;
+    #OK troca de mensagens em modo texto entre cliente e servidor e entre clientes.
+    #NO reiniciar ouvinte apos encerra do move remoto
+    #NO reconexao
+    #NO tolerancia a falhas
+
+    #COMANDOS
+    #OK criar usuário
+    #OK login
+    #OK mudança de senha
+    #OK logout
+    #OK lista de conectados
+    #OK inicio de partida
+    #OK desafio
+    #OK movimentação do pacman
+    #OK encerramento da partida
+    #OK recebimento da arena atualizada
+    #NO envio do resultado da partida para o servidor
+    #NO classificação dos usuários existente
+
+    #LOGS
+    #OK Servidor iniciado -> Não checa se foi finalizado corretamente 
+    #OK Conexao realizada por um cliente (Enderec ̧o IP do cliente);
+    #OK Login com sucesso ou nao (Nome do usuario que conseguiu, ou nao, logar, e endereco IP de onde veio o login);
+    #OK Desconexao realizada por um cliente (Enderecoo IP do cliente);
+    #OK Inicio de uma partida (Endereco IP e nome do usu ́ario);
+    #NO Entrada e sa ́ıda de fantasma da partida existente (Enderec ̧o IP e nome do usu ́ario)
+    #NO Finalizacao de uma partida (Enderec ̧os IP, nomes dos usu ́arios e nome do vencedor);
+    #NO Desconex ̃ao inesperada de um cliente, verificada pelos heartbeats (Enderec ̧o IP do cliente);
+    #OK Servidor finalizado
+
+Grande parte dos comandos que não foram implementados seguem a mesma lógica do heartbeat, no qual eu tive dificuldade de fazer funcionar. Acredito 
+que seria simples se eu só tivesse criado uma nova thread com um socket escutando, mas eu insisti em tentar minimizar a quantidade de sockets e acabei
+gastando tempo demais.
