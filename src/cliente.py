@@ -64,7 +64,7 @@ class Cliente():
         
         self.estado = NEUTRO
         self.usuario = 'u'
-        self.senha = 's'
+        #self.senha = 's'
         self.pontuacao = 0
         self.latencia = []
         self.heartbeat = [] 
@@ -81,7 +81,7 @@ class Cliente():
             C_ATRASO: self.atraso,
             C_ENCERRA: self.encerra,
             C_SAI: self.sai,
-            C_TCHAU: self.tchau,
+            C_TCHAU: self.tchau
         }
         self.comandos_do_estado = {
             NEUTRO: [C_NOVO, C_ENTRA, C_TCHAU],
@@ -94,7 +94,7 @@ class Cliente():
         while True:
             comando = input(PROMPT)
             if self.comando_valido(comando):
-                acao = comando.split()[0]
+                acao = comando.split(' ')[0]
                 argumentos = comando.split()[1:]
                 if acao in self.comandos_do_estado[self.estado]:
                     self.interpretador[acao](argumentos)
